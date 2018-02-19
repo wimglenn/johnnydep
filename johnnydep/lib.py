@@ -1,36 +1,48 @@
+from __future__ import unicode_literals
+
+import errno
+import io
 import json
 import os
+import sys
 from collections import OrderedDict
-from functools import lru_cache
-from pathlib import Path
 from tempfile import NamedTemporaryFile
 from zipfile import ZipFile
 
+import oyaml
+import toml
 from anytree import NodeMixin
 from anytree import RenderTree
 from anytree.iterators import LevelOrderIter
-from johnnydep.pipper import get
-from johnnydep.pipper import get_versions
 from pip.req.req_install import Marker
-from pkg_resources import get_distribution
 from pkg_resources import DistributionNotFound
 from pkg_resources import Requirement
 from pkg_resources import VersionConflict
+from pkg_resources import get_distribution
 from structlog import get_logger
-from types import SimpleNamespace
 from wheel.metadata import pkginfo_to_dict
 from wimpy import cached_property
 from wimpy import strip_suffix
 from wimpy import working_directory
 
+from johnnydep.pipper import get
+from johnnydep.pipper import get_versions
 
 __all__ = ['JohnnyDist', 'get_wheel_file', 'gen_table']
 
 
 logger = get_logger(__name__)
 DEFAULT_INDEX = 'https://pypi.python.org/simple'
-tmp = Path(os.environ.get('TMPDIR') or '/tmp') / 'johnnydep'
-tmp.mkdir(exist_ok=True)
+tmp = os.path.join((os.environ.get('TMPDIR') or '/tmp'), 'johnnydep')
+try:
+    os.mkdir(tmp)
+except OSError as err:
+    if err.errno != errno.EEXIST:
+        raise
+
+
+if sys.version_info < (3,):
+    oyaml.add_representer(unicode, lambda d, s: oyaml.ScalarNode(tag=u'tag:yaml.org,2002:str', value=s))
 
 
 class JohnnyDist(NodeMixin):
@@ -42,24 +54,22 @@ class JohnnyDist(NodeMixin):
         if parent is not None:
             self.index_url = parent.index_url
         else:
-            if index_url is None:
-                index_url = DEFAULT_INDEX
             self.index_url = index_url
         try:
             log.debug('checking if installed already')
             dist = get_distribution(req_string)
         except (DistributionNotFound, VersionConflict) as err:
             log.debug('not found, fetching a wheel')
-            local_whl = get_wheel_file(req_string, index_url=self.index_url)
-            self.zip = ZipFile(file=str(tmp/local_whl.path))
+            local_whl_data = get_wheel_file(req_string, index_url=self.index_url)
+            self.zip = ZipFile(file=os.path.join(tmp, local_whl_data['path']))
             self.namelist = self.zip.namelist()
             if isinstance(err, VersionConflict):
-                self.installed = get_distribution(self.req.name).version
+                self.version_installed = get_distribution(self.req.name).version
             else:
-                self.installed = None
+                self.version_installed = None
         else:
             log.debug('existing installation found', version=dist.version)
-            self.installed = dist.version
+            self.version_installed = dist.version
             self.namelist = [os.path.join(dist.egg_info, x) for x in os.listdir(dist.egg_info)]
             self.zip = None
         self.parent = parent
@@ -67,7 +77,8 @@ class JohnnyDist(NodeMixin):
 
     def read(self, name):
         if self.zip is None:
-            return Path(name).read_text()
+            with io.open(name) as f:
+                return f.read()
         else:
             return self.zip.read(name).decode('utf-8')
 
@@ -80,7 +91,7 @@ class JohnnyDist(NodeMixin):
             self.log.debug('top_level absent, trying metadata')
             public_names = self.metadata['python.exports']['modules'] or []
         else:
-            all_names = self.read(top_level_fname).splitlines()
+            all_names = self.read(top_level_fname).strip().splitlines()
             public_names = [n for n in all_names if not n.startswith('_')]
         return public_names
 
@@ -108,13 +119,13 @@ class JohnnyDist(NodeMixin):
         for d in self.metadata.get('run_requires', {}):
             if 'extra' in d:
                 include = d['extra'] in self.req.extras
-                msg = f"{'adding' if include else 'ignored'} reqs for extra"
+                msg = ('adding' if include else 'ignored') + ' reqs for extra'
                 self.log.debug(msg, extra=d['extra'], requires=d['requires'])
                 if not include:
                     continue
             if 'environment' in d:
                 include = Marker(d['environment']).evaluate()
-                msg = f"{'adding' if include else 'ignored'} platform specific reqs"
+                msg = ('adding' if include else 'ignored') + ' platform specific reqs'
                 self.log.debug(msg, env=d['environment'], requires=d['requires'])
                 if not include:
                     continue
@@ -132,10 +143,7 @@ class JohnnyDist(NodeMixin):
                 dep = dep.replace(' (', '').rstrip(')')
                 JohnnyDist(req_string=dep, parent=self)
             self._recursed = True
-        return super().children
-
-    def iter_tree(self):
-        yield from LevelOrderIter(self)
+        return super(JohnnyDist, self).children
 
     @property
     def homepage(self):
@@ -144,34 +152,78 @@ class JohnnyDist(NodeMixin):
                 return self.metadata['extensions'][k]['project_urls']['Home']
             except KeyError:
                 pass
-        self.log.info("unknown url")
+        self.log.info("unknown homepage")
 
     @property
     def specifier(self):
-        return self.req.specifier
+        return str(self.req.specifier)
 
     @property
     def summary(self):
         return self.metadata.get('summary').lstrip('#').strip()
 
     @cached_property
-    def latest(self):
-        all_versions = get_versions(self.req.name)
-        return all_versions.split(', ')[-1]
+    def versions_available(self):
+        all_versions = get_versions(self.req.name, index_url=self.index_url)
+        return all_versions.split(', ')
 
     @property
-    def options(self):
-        return ', '.join(self.metadata.get('extras', []))
+    def version_latest(self):
+        if self.versions_available:
+            return self.versions_available[-1]
 
     @property
-    def provides(self):
-        return ', '.join(self.import_names)
+    def version_latest_in_spec(self):
+        for v in reversed(self.versions_available):
+            if v in self.req.specifier:
+                return v
+
+    @property
+    def extras_available(self):
+        return self.metadata.get('extras', [])
+
+    @property
+    def extras_requested(self):
+        return sorted(self.req.extras)
+
+    @property
+    def project_name(self):
+        return self.metadata.get('name', self.req.name)
+
+    @cached_property
+    def _best(self):
+        return get_wheel_file(self.req.name + '==' + self.version_latest_in_spec, index_url=self.index_url)
+
+    @property
+    def download_link(self):
+        return self._best['url']
+
+    @property
+    def checksum(self):
+        return self._best['hashtype'] + '=' + self._best['srchash']
+
+    def serialise(self, fields=(), format=None):
+        data = OrderedDict([
+            ('name', str(self.req)),
+            ('requires', [node.serialise(fields=fields) for node in self.children]),
+        ])
+        data.update(OrderedDict([(f, getattr(self, f, None)) for f in fields]))
+        if format is None or format == 'python':
+            result = data
+        elif format == 'json':
+            result = json.dumps(data, indent=2, default=str, separators=(',', ': '))
+        elif format == 'yaml':
+            result = oyaml.dump(data)
+        elif format == 'toml':
+            result = toml.dumps(data)
+        else:
+            raise Exception('Unsupported format')
+        return result
 
 
-@lru_cache()
 def get_wheel_file(dist_name, index_url=DEFAULT_INDEX):
     with working_directory(tmp):
-        return SimpleNamespace(**get(dist_name=dist_name, index_url=index_url))
+        return get(dist_name=dist_name, index_url=index_url)
 
 
 def gen_table(johnnydist, extra_cols=()):
@@ -181,16 +233,19 @@ def gen_table(johnnydist, extra_cols=()):
         name = str(node.req)
         if 'specifier' in extra_cols:
             name = strip_suffix(name, str(node.specifier))
-        row['name'] = f'{pre}{name}'
+        row['name'] = pre + name
         for col in extra_cols:
-            row[col] = getattr(node, col, '')
+            val = getattr(node, col, '')
+            if isinstance(val, list):
+                val = ', '.join(val)
+            row[col] = val
         yield row
 
 
 def flatten_deps(johnnydist):
     """yields tuples of (project_name, johnnydist) in breadth-first order, including the root node"""
     seen = {}  # dict of {project_name: (spec, extras, johnnydist)}
-    for dep in johnnydist.iter_tree():
+    for dep in LevelOrderIter(johnnydist):
         try:
             prev_spec, prev_extras, prev = seen[dep.req.name]
         except KeyError:
@@ -217,6 +272,6 @@ def flatten_deps(johnnydist):
         # TODO : dependency resolution handling for disjoint extras / specs
 
 
-# TODO: json and/or yaml output
+# TODO: flat output
 # TODO: progress bar?
 # TODO: TTL cache

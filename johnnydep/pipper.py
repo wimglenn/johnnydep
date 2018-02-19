@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+from __future__ import unicode_literals
+
 import glob
 import hashlib
 import json
@@ -6,7 +8,6 @@ import logging
 import os
 import sys
 from argparse import ArgumentParser
-from contextlib import suppress
 
 import pip
 from pip.exceptions import DistributionNotFound
@@ -31,7 +32,7 @@ def compute_checksum(target, algorithm='sha256', blocksize=2**13):
         for chunk in iter(lambda: f.read(blocksize), b''):
             hash.update(chunk)
     result = hash.hexdigest()
-    log.debug(checksum=result)
+    log.debug('computed checksum', result=result)
     return result
 
 
@@ -41,8 +42,12 @@ def get_versions(dist_name, index_url=DEFAULT_INDEX):
     wheel_cmd = pip.commands.wheel.WheelCommand()
     wheel_args = ['--no-deps', '--no-cache-dir', '--index-url', index_url, bare_name + '==showmethemoney']
     options, args = wheel_cmd.parse_args(wheel_args)
-    with LogCapture(level=logging.INFO) as log_capture, OutputCapture(), suppress(DistributionNotFound):
-        wheel_cmd.run(options, args)
+    with LogCapture(level=logging.INFO) as log_capture, OutputCapture():
+        try:
+            wheel_cmd.run(options, args)
+        except DistributionNotFound:
+            # expected.  we forced this by using a non-existing version number.
+            pass
     msg = 'Could not find a version that satisfies the requirement %s (from versions: %s)'
     record = next(r for r in reversed(log_capture.records) if r.msg == msg)
     _install_requirement, versions = record.args
@@ -53,12 +58,13 @@ def get(dist_name, index_url=DEFAULT_INDEX):
     wheel_cmd = pip.commands.wheel.WheelCommand()
     wheel_args = ['--no-deps', '--no-cache-dir', '--index-url', index_url, dist_name]
     options, args = wheel_cmd.parse_args(wheel_args)
-    quiet_please = open(os.devnull, 'w')
-    # Sorry about the gross monkeypatch ... we are waiting on pip 9.1 here
+    # Waiting on pip 9.1 here
     #   https://github.com/pypa/pip/pull/4194
+    log.debug('wheeling and dealing', cmd=' '.join(wheel_args))
     with LogCapture(level=logging.INFO) as log_capture, OutputCapture() as out:
-        with Replace('pip.utils.ui.DownloadProgressBar.file', quiet_please):
+        with open(os.devnull, 'w') as shhh, Replace('pip.utils.ui.DownloadProgressBar.file', shhh):
             wheel_cmd.run(options, args)
+    log.debug('wheel command completed successfully')
     install_req = whl = url = checksum = collected_name = None
     for record in log_capture.records:
         if record.msg == 'Collecting %s':
@@ -103,7 +109,7 @@ def get(dist_name, index_url=DEFAULT_INDEX):
         hashtype = 'sha256'
         srchash = compute_checksum(whl)
     msg = 'built wheel from source' if collected_name is not None else 'found existing wheel'
-    log.info(msg, url=url, checksum=checksum)
+    log.info(msg, url=url, hashtype=hashtype, srchash=srchash)
     result = {
         'path': whl,
         'url': url,
@@ -130,7 +136,7 @@ def main():
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.WARNING)
     log.debug(str(debug))
     result = get(dist_name=args.dist_name, index_url=args.index_url)
-    print(json.dumps(result, indent=2, sort_keys=True))
+    print(json.dumps(result, indent=2, sort_keys=True, separators=(',', ': ')))
 
 
 if __name__ == '__main__':

@@ -1,3 +1,5 @@
+from __future__ import unicode_literals
+
 import logging.config
 
 import structlog
@@ -45,7 +47,7 @@ def configure_logging(verbosity=0):
             },
         }
     })
-    structlog.configure_once(
+    structlog.configure(
         processors=[
             structlog.stdlib.add_logger_name,
             structlog.stdlib.add_log_level,
