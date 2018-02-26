@@ -1,11 +1,12 @@
 import glob
 import os
 import sys
-
 from collections import defaultdict
 
 import pytest
 import requests_mock as _requests_mock
+
+from johnnydep.pipper import compute_checksum
 
 
 @pytest.fixture(autouse=True)
@@ -26,10 +27,11 @@ def fakeindex(requests_mock):
     index_path = os.path.join(os.path.dirname(__file__), 'fakeindex')
     index_data = defaultdict(list)
     for path in glob.glob(os.path.join(index_path, '*', '*')):
+        hash_ = compute_checksum(path, algorithm='md5')
         name, fname = path.split(os.sep)[-2:]
-        index_data[name].append(fname)
+        index_data[name].append((fname, hash_))
     for name, files in index_data.items():
-        links = ['<a href="./{0}">{0}</a><br/>'.format(f) for f in files]
+        links = ['<a href="./{0}#md5={1}">{0}</a><br/>'.format(*file) for file in files]
         requests_mock.register_uri(
             method='GET',
             url='https://pypi.python.org/simple/{}/'.format(name),
@@ -40,7 +42,7 @@ def fakeindex(requests_mock):
             {links}
             </body></html>'''.format(name=name, links='\n'.join(links)),
         )
-        for fname in files:
+        for fname, hash in files:
             path = os.path.join(index_path, name, fname)
             with open(str(path), mode='rb') as f:
                 content = f.read()

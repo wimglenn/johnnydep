@@ -14,6 +14,9 @@ import toml
 from anytree import NodeMixin
 from anytree import RenderTree
 from anytree.iterators import LevelOrderIter
+from pip.download import PipSession
+from pip.index import PackageFinder
+from pip.req.req_install import InstallRequirement
 from pip.req.req_install import Marker
 from pkg_resources import DistributionNotFound
 from pkg_resources import Requirement
@@ -22,6 +25,7 @@ from pkg_resources import get_distribution
 from structlog import get_logger
 from wheel.metadata import pkginfo_to_dict
 from wimpy import cached_property
+from wimpy import strip_prefix
 from wimpy import strip_suffix
 from wimpy import working_directory
 
@@ -192,7 +196,7 @@ class JohnnyDist(NodeMixin):
 
     @cached_property
     def _best(self):
-        return get_wheel_file(self.req.name + '==' + self.version_latest_in_spec, index_url=self.index_url)
+        return get_link(self.req.name + '==' + self.version_latest_in_spec, index_url=self.index_url)
 
     @property
     def download_link(self):
@@ -200,7 +204,7 @@ class JohnnyDist(NodeMixin):
 
     @property
     def checksum(self):
-        return self._best['hashtype'] + '=' + self._best['srchash']
+        return self._best['checksum']
 
     def serialise(self, fields=(), format=None):
         data = OrderedDict([
@@ -224,6 +228,21 @@ class JohnnyDist(NodeMixin):
 def get_wheel_file(dist_name, index_url=DEFAULT_INDEX):
     with working_directory(tmp):
         return get(dist_name=dist_name, index_url=index_url)
+
+
+def get_link(dist_name, index_url=DEFAULT_INDEX):
+    req = Requirement.parse(dist_name)
+    install_req = InstallRequirement(req=req, comes_from=None)
+    with PipSession(retries=5) as session:
+        finder = PackageFinder(find_links=(), index_urls=[index_url], session=session)
+        result = finder.find_requirement(install_req, upgrade=True)
+    url, fragment = result.url.split('#', 1)
+    assert url == result.url_without_fragment
+    data = {
+        'url': url,
+        'checksum': fragment,  # hashtype=srchash
+    }
+    return data
 
 
 def gen_table(johnnydist, extra_cols=()):

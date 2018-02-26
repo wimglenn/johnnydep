@@ -1,0 +1,33 @@
+language: python
+
+sudo: false
+
+python:
+  - "2.7"
+  - "3.4"
+  - "3.5"
+  - "3.6"
+  - "nightly"
+  - "pypy"
+  - "pypy3.5"
+
+matrix:
+  fast_finish: true
+  allow_failures:
+  - python: "nightly"
+
+install:
+  - pip install -r requirements-dev.txt
+  - pip install --editable .
+  - pip install --upgrade setuptools
+
+script:
+  - pip freeze
+  - pytest --cov=johnnydep
+
+after_success:
+  - coverage combine
+  - coveralls
+
+notifications:
+  email: false

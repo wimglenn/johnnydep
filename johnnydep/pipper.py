@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from __future__ import unicode_literals
+from __future__ import unicode_literals, print_function
 
 import glob
 import hashlib
@@ -26,12 +26,12 @@ DEFAULT_INDEX = 'https://pypi.python.org/simple/'
 
 def compute_checksum(target, algorithm='sha256', blocksize=2**13):
     hashtype = getattr(hashlib, algorithm)
-    hash = hashtype()
+    hash_ = hashtype()
     log.info('computing checksum', target=target, algorithm=algorithm)
     with open(target, 'rb') as f:
         for chunk in iter(lambda: f.read(blocksize), b''):
-            hash.update(chunk)
-    result = hash.hexdigest()
+            hash_.update(chunk)
+    result = hash_.hexdigest()
     log.debug('computed checksum', result=result)
     return result
 
@@ -100,21 +100,18 @@ def get(dist_name, index_url=DEFAULT_INDEX):
         # start digging in pip.req.req_install.py:InstallRequirement.populate_link
         # If that doesn't work, might have to look at using pip.index.py:PackageFinder directly
         raise Exception('url is cached ... fixme')
-    if checksum:
-        hashtype, srchash = checksum.split('=')
-    else:
+    if not checksum:
         # this can happen, for example, if wheel dug a file out of the pip cache instead of downloading it
         # the wheel cache (~/.cache/pip/wheels/) directory structure is no good for us here, that's a sha224
         # of the download link, not a proper content checksum. so let's just compute the checksum clientside.
-        hashtype = 'sha256'
-        srchash = compute_checksum(whl)
+        md5 = compute_checksum(whl, algorithm='md5')
+        checksum = 'md5={}'.format(md5)
     msg = 'built wheel from source' if collected_name is not None else 'found existing wheel'
-    log.info(msg, url=url, hashtype=hashtype, srchash=srchash)
+    log.info(msg, url=url, checksum=checksum)
     result = {
         'path': whl,
         'url': url,
-        'hashtype': hashtype,
-        'srchash': srchash,
+        'checksum': checksum,
     }
     return result
 
