@@ -3,7 +3,6 @@ from __future__ import unicode_literals
 
 import json
 import os
-from pathlib import Path
 from textwrap import dedent
 
 from johnnydep.cli import main
@@ -74,7 +73,7 @@ def test_pretty_json_out(mocker, capsys):
           "version_latest": "1.2.3",
           "version_latest_in_spec": "1.2.3",
           "download_link": "https://pypi.python.org/simple/fakedist/fakedist-1.2.3-py2.py3-none-any.whl",
-          "checksum": "sha256=61698aa9386aac2567238386dd438c21f40d3be0bfcc6359e8aa5d0abe978c1f"
+          "checksum": "md5=63d82676c56d127bd9d1d41af5e8a064"
         }
     ''')
 
@@ -99,7 +98,7 @@ def test_yaml_out(mocker, capsys):
         version_latest: 1.2.3
         version_latest_in_spec: 1.2.3
         download_link: https://pypi.python.org/simple/fakedist/fakedist-1.2.3-py2.py3-none-any.whl
-        checksum: sha256=61698aa9386aac2567238386dd438c21f40d3be0bfcc6359e8aa5d0abe978c1f
+        checksum: md5=63d82676c56d127bd9d1d41af5e8a064
 
     ''')
 
@@ -109,12 +108,12 @@ def test_pipper(mocker, capsys):
     pipper_main()
     out, err = capsys.readouterr()
     output = json.loads(out)
-    path = Path(output.pop('path'))
-    assert path.is_file()
+    path = output.pop('path')
+    assert os.path.isfile(path)
     assert err == ''
     assert output == {
-        'hashtype': 'sha256',
-        'srchash': '61698aa9386aac2567238386dd438c21f40d3be0bfcc6359e8aa5d0abe978c1f',
+        'checksum': 'md5=63d82676c56d127bd9d1d41af5e8a064',
         'url': 'https://pypi.python.org/simple/fakedist/fakedist-1.2.3-py2.py3-none-any.whl',
     }
-    assert path.name == 'fakedist-1.2.3-py2.py3-none-any.whl'
+    parent, fname = os.path.split(path)
+    assert fname == 'fakedist-1.2.3-py2.py3-none-any.whl'

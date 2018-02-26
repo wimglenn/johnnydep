@@ -1,4 +1,4 @@
-from __future__ import unicode_literals
+from __future__ import unicode_literals, print_function
 
 from argparse import ArgumentParser
 from collections import OrderedDict
