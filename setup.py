@@ -11,8 +11,8 @@ setup(
     license='MIT',
     url='https://github.com/wimglenn/johnnydep',
     install_requires=[
-        'anytree', 'pip', 'structlog', 'wheel', 'wimpy', 'colorama', 'toml',
-        'testfixtures', 'tabulate', 'oyaml'
+        'anytree', 'structlog', 'tabulate', 'wimpy', 'colorama', 'cachetools',
+        'pip', 'wheel', 'testfixtures', 'oyaml', 'pytoml', 'setuptools>=38.3',
     ],
     entry_points={'console_scripts': ['johnnydep=johnnydep.cli:main']},
 )

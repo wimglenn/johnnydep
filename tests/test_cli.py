@@ -52,11 +52,13 @@ def test_pretty_json_out(mocker, capsys):
     out, err = capsys.readouterr()
     assert err == ''
     assert out == dedent('''\
+      [
         {
-          "name": "fakedist>1.2",
-          "requires": [],
+          "name": "fakedist",
           "summary": "This is a fake distribution for johnnydep's test suite",
           "specifier": ">1.2",
+          "requires": [],
+          "required_by": [],
           "import_names": [
             "fakedistmod"
           ],
@@ -75,6 +77,7 @@ def test_pretty_json_out(mocker, capsys):
           "download_link": "https://pypi.python.org/simple/fakedist/fakedist-1.2.3-py2.py3-none-any.whl",
           "checksum": "md5=63d82676c56d127bd9d1d41af5e8a064"
         }
+      ]
     ''')
 
 
@@ -84,10 +87,11 @@ def test_yaml_out(mocker, capsys):
     out, err = capsys.readouterr()
     assert err == ''
     assert out == dedent('''\
-        name: fakedist
-        requires: []
+      - name: fakedist
         summary: This is a fake distribution for johnnydep's test suite
         specifier: ''
+        requires: []
+        required_by: []
         import_names: [fakedistmod]
         homepage: https://notexist
         extras_available: [dev]
