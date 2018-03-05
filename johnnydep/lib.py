@@ -16,20 +16,16 @@ import pkg_resources
 import pytoml
 import wimpy
 from cachetools.func import ttl_cache
-from pip.download import PipSession
 from pip.index import canonicalize_name
-from pip.index import PackageFinder
-from pip.req.req_install import InstallRequirement
 from pip.req.req_install import Marker
 from structlog import get_logger
 from wheel.metadata import pkginfo_to_dict
 from wheel.util import OrderedDefaultDict
 from wimpy import cached_property
 
-from johnnydep.pipper import get
-from johnnydep.pipper import get_versions
+from johnnydep import pipper
 
-__all__ = ['JohnnyDist', 'gen_table', 'flatten_deps', 'get_link']
+__all__ = ['JohnnyDist', 'gen_table', 'flatten_deps']
 
 
 logger = get_logger(__name__)
@@ -181,7 +177,7 @@ class JohnnyDist(anytree.NodeMixin):
 
     @cached_property
     def versions_available(self):
-        all_versions = get_versions(self.name, index_url=self.index_url)
+        all_versions = pipper.get_versions(self.name, index_url=self.index_url)
         return all_versions.split(', ')
 
     @property
@@ -218,7 +214,8 @@ class JohnnyDist(anytree.NodeMixin):
 
     @cached_property
     def _best(self):
-        return get_link(self.name + '==' + self.version_latest_in_spec, index_url=self.index_url)
+        pinned = self.name + '==' + self.version_latest_in_spec
+        return pipper.get_link(pinned, index_url=self.index_url)
 
     @property
     def download_link(self):
@@ -249,23 +246,7 @@ class JohnnyDist(anytree.NodeMixin):
 
 @ttl_cache(maxsize=512, ttl=60*5)  # memo with 5 minutes time-to-live
 def get_wheel(dist_name, index_url=DEFAULT_INDEX):
-    return get(dist_name=dist_name, index_url=index_url)
-
-
-@ttl_cache(maxsize=512, ttl=60*5)
-def get_link(dist_name, index_url=DEFAULT_INDEX):
-    req = pkg_resources.Requirement.parse(dist_name)
-    install_req = InstallRequirement(req=req, comes_from=None)
-    with PipSession(retries=5) as session:
-        finder = PackageFinder(find_links=(), index_urls=[index_url], session=session)
-        result = finder.find_requirement(install_req, upgrade=True)
-    url, fragment = result.url.split('#', 1)
-    assert url == result.url_without_fragment
-    data = {
-        'url': url,
-        'checksum': fragment,  # hashtype=srchash
-    }
-    return data
+    return pipper.get(dist_name=dist_name, index_url=index_url)
 
 
 def gen_table(johnnydist, extra_cols=()):

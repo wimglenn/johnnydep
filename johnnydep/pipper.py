@@ -11,8 +11,11 @@ from argparse import ArgumentParser
 
 import pip
 import pip.index
-from pip.req.req_install import Requirement
+import pkg_resources
 import testfixtures
+from pip.download import PipSession
+from pip.req.req_install import InstallRequirement
+from pip.req.req_install import Requirement
 from cachetools.func import ttl_cache
 from structlog import get_logger
 
@@ -51,6 +54,22 @@ def get_versions(dist_name, index_url=DEFAULT_INDEX):
     record = next(r for r in reversed(log_capture.records) if r.msg == msg)
     _install_requirement, versions = record.args
     return versions
+
+
+@ttl_cache(maxsize=512, ttl=60*5)
+def get_link(dist_name, index_url=DEFAULT_INDEX):
+    req = pkg_resources.Requirement.parse(dist_name)
+    install_req = InstallRequirement(req=req, comes_from=None)
+    with PipSession(retries=5) as session:
+        finder = pip.index.PackageFinder(find_links=(), index_urls=[index_url], session=session)
+        result = finder.find_requirement(install_req, upgrade=True)
+    url, fragment = result.url.split('#', 1)
+    assert url == result.url_without_fragment
+    data = {
+        'url': url,
+        'checksum': fragment,  # hashtype=srchash
+    }
+    return data
 
 
 def get(dist_name, index_url=DEFAULT_INDEX):
