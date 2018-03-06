@@ -42,7 +42,7 @@ def fakeindex(requests_mock):
             {links}
             </body></html>'''.format(name=name, links='\n'.join(links)),
         )
-        for fname, hash in files:
+        for fname, _hash in files:
             path = os.path.join(index_path, name, fname)
             with open(str(path), mode='rb') as f:
                 content = f.read()
@@ -57,3 +57,8 @@ def fakeindex(requests_mock):
         os.remove('fakedist-1.2.3-py2.py3-none-any.whl')
     except OSError:
         pass
+
+
+@pytest.fixture(autouse=True)
+def kill_env():
+    os.environ.pop('JOHNNYDEP_FIELDS', None)

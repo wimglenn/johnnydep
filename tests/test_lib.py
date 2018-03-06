@@ -5,6 +5,7 @@ from pip.exceptions import DistributionNotFound
 from testfixtures import ShouldRaise
 
 from johnnydep.lib import JohnnyDist
+from johnnydep.lib import flatten_deps
 
 
 def test_version_nonexisting():
@@ -64,21 +65,62 @@ def test_build_from_sdist():
     }
 
 
-@pytest.mark.skipif(condition=sys.version_info < (3, 3), reason='conditional deps')
+@pytest.mark.skipif(condition=sys.version_info < (3, 3), reason='This test is for Python >= 3.3 only')
 def test_conditional_deps_python3():
     dist = JohnnyDist('copyingmock')
-    assert dist.deps == []
+    assert dist.requires == []
 
 
-@pytest.mark.skipif(condition=sys.version_info >= (3, 3), reason='This test is for Python')
+@pytest.mark.skipif(condition=sys.version_info >= (3, 3), reason='This test is for Python < 3.3 only')
 def test_conditional_deps_python2():
     dist = JohnnyDist('copyingmock')
-    assert dist.deps == ['mock']
+    assert dist.requires == ['mock']
 
 
 def test_serialiser():
     dist = JohnnyDist('wheel')
-    assert dist.serialise() == {'name': 'wheel', 'requires': []}
-    assert dist.serialise(format='toml') == 'name = "wheel"\nrequires = []\n'
+    assert dist.serialise(format=None) == [{'name': 'wheel', 'summary': 'A built-package format for Python.'}]
+    assert dist.serialise(format='toml') == 'name = "wheel"\nsummary = "A built-package format for Python."\n'
+    assert dist.serialise(format='yaml') == '- {name: wheel, summary: A built-package format for Python.}\n'
     with ShouldRaise(Exception('Unsupported format')):
         dist.serialise(format='bogus')
+
+
+def test_flatten_dist_with_nodeps():
+    dist = JohnnyDist('fakedist')
+    reqs = list(flatten_deps(dist))
+    assert reqs == [dist]
+
+
+def test_flatten_dist_with_deps():
+    dist = JohnnyDist('fakedist[dev]')
+    reqs = list(flatten_deps(dist))
+    [dist0, dist1] = reqs
+    assert dist0.name == 'fakedist'
+    assert dist0 is dist
+    assert str(dist1.req) == 'wheel>=0.30.0'
+
+
+def test_serialiser_with_deps():
+    dist = JohnnyDist('fakedist[dev]')
+    assert dist.serialise(fields=['name']) == [
+        {'name': 'fakedist'},
+        {'name': 'wheel'},
+    ]
+
+
+def test_children():
+    dist = JohnnyDist('fakedist[dev]')
+    assert len(dist.children) == 1
+    [child] = dist.children
+    assert child.project_name == 'wheel'
+
+
+def test_non_json_metadata():
+    # this dist uses old-skool metadata format (plaintext not json)
+    dist = JohnnyDist('testpath==0.3.1')
+    assert dist.serialise(fields=['name', 'summary', 'import_names']) == [{
+        'name': 'testpath',
+        'summary': 'Test utilities for code working with files and commands',
+        'import_names': ['testpath'],
+    }]
