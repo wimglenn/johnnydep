@@ -43,7 +43,7 @@ class JohnnyDist(anytree.NodeMixin):
 
         self.name = canonicalize_name(str(self.req.name))
         self.specifier = str(self.req.specifier)
-        self.extras_requested = list(self.req.extras)
+        self.extras_requested = sorted(self.req.extras)
 
         log = self.log = logger.bind(dist=str(self.req))
         log.info('init johnnydist', parent=parent and str(parent.req))
@@ -56,8 +56,11 @@ class JohnnyDist(anytree.NodeMixin):
         try:
             log.debug('checking if installed already')
             dist = pkg_resources.get_distribution(req_string)
+            log.debug('existing installation found', version=dist.version)
+            self.version_installed = dist.version
+            dist = pkg_resources.get_distribution(self.pinned)
         except (pkg_resources.DistributionNotFound, pkg_resources.VersionConflict) as err:
-            log.debug('not found, fetching a wheel')
+            log.debug('fetching best wheel')
             with wimpy.working_directory(self.tmp()):
                 local_whl_data = get_wheel(req_string, index_url=self.index_url)
             self.zip = ZipFile(file=local_whl_data['path'])
@@ -67,8 +70,7 @@ class JohnnyDist(anytree.NodeMixin):
             else:
                 self.version_installed = None
         else:
-            log.debug('existing installation found', version=dist.version)
-            self.version_installed = dist.version
+            log.debug('existing installation is best!', version=dist.version)
             self.namelist = [os.path.join(dist.egg_info, x) for x in os.listdir(dist.egg_info)]
             self.zip = None
         self.parent = parent
@@ -103,7 +105,7 @@ class JohnnyDist(anytree.NodeMixin):
                         public_names.append(parts[0])
                     elif len(parts) == 1:
                         name, ext = os.path.splitext(parts[0])
-                        if ext == '.py':
+                        if ext == '.py' or ext == '.so':
                             # found a top level module
                             public_names.append(name)
         else:
@@ -156,8 +158,6 @@ class JohnnyDist(anytree.NodeMixin):
         if not self._recursed:
             self.log.debug('populating dep tree')
             for dep in self.requires:
-                # a bit of a kludge but .. transform metadata back into PEP440 style syntax
-                dep = dep.replace(' (', '').rstrip(')')
                 JohnnyDist(req_string=dep, parent=self)
             self._recursed = True
         return super(JohnnyDist, self).children
@@ -193,7 +193,7 @@ class JohnnyDist(anytree.NodeMixin):
 
     @property
     def extras_available(self):
-        return self.metadata.get('extras', [])
+        return sorted([x for x in self.metadata.get('extras', []) if x])
 
     @property
     def project_name(self):
@@ -212,10 +212,18 @@ class JohnnyDist(anytree.NodeMixin):
             cls._tmpdir = tmpdir
         return cls._tmpdir
 
+    @property
+    def pinned(self):
+        if self.extras_requested:
+            extras = '[{}]'.format(','.join(self.extras_requested))
+        else:
+            extras = ''
+        result = '{}{}=={}'.format(self.name, extras, self.version_latest_in_spec)
+        return result
+
     @cached_property
     def _best(self):
-        pinned = self.name + '==' + self.version_latest_in_spec
-        return pipper.get_link(pinned, index_url=self.index_url)
+        return pipper.get_link(self.pinned, index_url=self.index_url)
 
     @property
     def download_link(self):
@@ -226,6 +234,9 @@ class JohnnyDist(anytree.NodeMixin):
         return self._best['checksum']
 
     def serialise(self, fields=('name', 'summary'), recurse=True, format=None):
+        if format == 'pinned':
+            # user-specified fields are ignored/invalid in this case
+            fields = 'pinned',
         data = [OrderedDict([(f, getattr(self, f, None)) for f in fields])]
         if recurse and self.requires:
             deps = flatten_deps(self)
@@ -239,6 +250,8 @@ class JohnnyDist(anytree.NodeMixin):
             result = oyaml.dump(data)
         elif format == 'toml':
             result = '\n'.join([pytoml.dumps(d) for d in data])
+        elif format == 'pinned':
+            result = '\n'.join([d['pinned'] for d in data])
         else:
             raise Exception('Unsupported format')
         return result
@@ -268,6 +281,7 @@ def gen_table(johnnydist, extra_cols=()):
 
 
 def flatten_deps(johnnydist):
+    johnnydist.log.debug('resolving dep tree')
     dist_map = OrderedDefaultDict(list)
     spec_map = defaultdict(str)
     extra_map = defaultdict(set)
@@ -284,9 +298,25 @@ def flatten_deps(johnnydist):
         for dist in dists:
             if dist.version_latest_in_spec in spec and set(dist.extras_requested) >= extras:
                 dist.required_by = required_by
+                johnnydist.log.debug('resolved', name=dist.name, required_by=required_by)
                 yield dist
                 break
         else:
-            raise Exception  # TODO: need to get a new dist!
+            nameset = {dist.name for dist in dists}
+            assert len(nameset) == 1  # name attributes were canonicalized by JohnnyDist.__init__
+            [name] = nameset
+            johnnydist.log.debug('merged specs', name=name, spec=spec, extras=extras)
+            req_string = '{name}{extras}{spec}'.format(
+                name=name,
+                extras='[{}]'.format(','.join(sorted(extras))) if extras else '',
+                spec=spec,
+            )
+            dist = JohnnyDist(req_string, index_url=dists[0].index_url)
+            dist.required_by = required_by
+            yield dist
+            # TODO: check if this new version has any new reqs!!
+
 
 # TODO: progress bar?
+# TODO: handle recursive dep tree
+# TODO: test dists to test pypi index, document pip failure modes
