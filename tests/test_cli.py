@@ -121,3 +121,56 @@ def test_pipper(mocker, capsys):
     }
     parent, fname = os.path.split(path)
     assert fname == 'fakedist-1.2.3-py2.py3-none-any.whl'
+
+
+def test_diamond_deptree(mocker, capsys):
+    fields = [
+        'name',
+        'specifier',
+        'requires',
+        'required_by',
+        'versions_available',
+        'version_latest_in_spec',
+    ]
+    mocker.patch('sys.argv', 'johnnydep distA --fields'.split() + fields)
+    main()
+    out, err = capsys.readouterr()
+    assert err == ''
+    assert out == dedent('''\
+    name                specifier    requires           required_by    versions_available      version_latest_in_spec
+    ------------------  -----------  -----------------  -------------  --------------------  ------------------------
+    distA                            distB1, distB2                    0.1                                        0.1
+    ├── distB1                       distC[x,z] (<0.3)  distA          0.1                                        0.1
+    │   └── distC[x,z]  <0.3                            distB1         0.1, 0.2, 0.3                              0.2
+    └── distB2                       distC[y] (!=0.2)   distA          0.1                                        0.1
+        └── distC[y]    !=0.2                           distB2         0.1, 0.2, 0.3                              0.3
+    ''')
+
+
+def test_unresolvable_deptree(mocker, capsys):
+    # It is still possible to print the dep tree even though there is no acceptable version available for distC
+    fields = 'name requires required_by versions_available version_latest_in_spec'.split()
+    mocker.patch('sys.argv', 'johnnydep distX --fields'.split() + fields)
+    main()
+    out, err = capsys.readouterr()
+    assert err == ''
+    assert out == dedent('''\
+        name            requires                     required_by    versions_available      version_latest_in_spec
+        --------------  ---------------------------  -------------  --------------------  ------------------------
+        distX           distC (<=0.1), distC (>0.2)                 0.1                                        0.1
+        ├── distC<=0.1                               distX          0.1, 0.2, 0.3                              0.1
+        └── distC>0.2                                distX          0.1, 0.2, 0.3                              0.3
+    ''')
+
+
+def test_requirements_txt_output(mocker, capsys):
+    mocker.patch('sys.argv', 'johnnydep distA -o pinned'.split())
+    main()
+    out, err = capsys.readouterr()
+    assert err == ''
+    assert out == dedent('''\
+        dista==0.1
+        distb1==0.1
+        distb2==0.1
+        distc[x,y,z]==0.1
+    ''')

@@ -63,11 +63,11 @@ def get_link(dist_name, index_url=DEFAULT_INDEX):
     with PipSession(retries=5) as session:
         finder = pip.index.PackageFinder(find_links=(), index_urls=[index_url], session=session)
         result = finder.find_requirement(install_req, upgrade=True)
-    url, fragment = result.url.split('#', 1)
+    url, sep, checksum = result.url.partition('#')
     assert url == result.url_without_fragment
     data = {
         'url': url,
-        'checksum': fragment,  # hashtype=srchash
+        'checksum': checksum or None,  # hashtype=srchash
     }
     return data
 

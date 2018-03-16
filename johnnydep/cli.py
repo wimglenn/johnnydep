@@ -38,7 +38,7 @@ def main():
     parser.add_argument('req', help='The project name or requirement specifier')
     parser.add_argument('--verbose', '-v', default=0, action='count')
     parser.add_argument('--index-url', '-i', default=DEFAULT_INDEX)
-    parser.add_argument('--output-format', '-o', choices=['json', 'yaml', 'text', 'python', 'toml'], default='text')
+    parser.add_argument('--output-format', '-o', choices=['json', 'yaml', 'text', 'python', 'toml', 'pinned'], default='text')
     parser.add_argument('--no-deps', help="Don't recurse the dependency tree", dest='recurse', action='store_false')
     parser.add_argument('--fields', '-f', nargs='*', default=default_fields, choices=list(FIELDS) + ['ALL'])
     args = parser.parse_args()
