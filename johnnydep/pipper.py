@@ -87,7 +87,7 @@ def get(dist_name, index_url=DEFAULT_INDEX):
             wheel_cmd.run(options, args)
     except Exception:
         for record in log_capture.records:
-            log.debug(record.msg % record.args)
+            log.debug(record.msg, *record.args)
         if output_capture.captured.strip():
             log.debug(output_capture.captured)
         raise
