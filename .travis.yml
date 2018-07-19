@@ -19,7 +19,7 @@ matrix:
 install:
   - pip install -r requirements-dev.txt
   - pip install --editable .
-  - pip install --upgrade setuptools
+  - pip install --upgrade pip setuptools wheel pytest
 
 script:
   - pip freeze
