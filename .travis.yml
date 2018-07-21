@@ -7,9 +7,10 @@ python:
   - "3.4"
   - "3.5"
   - "3.6"
-  - "nightly"
+  - "3.7"
   - "pypy"
   - "pypy3.5"
+  - "nightly"
 
 matrix:
   fast_finish: true
