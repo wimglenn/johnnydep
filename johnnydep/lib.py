@@ -74,19 +74,16 @@ class JohnnyDist(anytree.NodeMixin):
             log.debug("fetching best wheel")
             with wimpy.working_directory(self.tmp()):
                 self.dist_path = get_wheel(req_string, index_url=self.index_url)["path"]
-        self.zip = ZipFile(file=self.dist_path)
-        self.namelist = self.zip.namelist()
         self.parent = parent
         self._recursed = False
-
-    def read(self, name):
-        return self.zip.read(name).decode("utf-8")
 
     @cached_property
     def import_names(self):
         self.log.debug("finding import names")
+        zip = ZipFile(file=self.dist_path)
+        namelist = zip.namelist()
         try:
-            [top_level_fname] = [x for x in self.namelist if x.endswith("top_level.txt")]
+            [top_level_fname] = [x for x in namelist if x.endswith("top_level.txt")]
         except ValueError:
             self.log.debug("top_level absent, trying metadata")
             try:
@@ -95,7 +92,7 @@ class JohnnyDist(anytree.NodeMixin):
                 # this dist was packaged by a dinosaur, exports is not in metadata.
                 # we gotta do it the hard way ...
                 public_names = []
-                for name in self.namelist:
+                for name in namelist:
                     if ".dist-info/" in name or ".egg-info/" in name:
                         continue
                     parts = name.split(os.sep)
@@ -108,7 +105,7 @@ class JohnnyDist(anytree.NodeMixin):
                             # found a top level module
                             public_names.append(name)
         else:
-            all_names = self.read(top_level_fname).strip().splitlines()
+            all_names = zip.read(top_level_fname).decode("utf-8").strip().splitlines()
             public_names = [n for n in all_names if not n.startswith("_")]
         return public_names
 
