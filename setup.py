@@ -20,7 +20,7 @@ setup(
         "testfixtures",
         "oyaml",
         "pytoml",
-        "packaging",
+        "packaging>=17.0",
         "pip>=10.0.0",
         "wheel>=0.31.0",
         "setuptools>=38.3",  # for pkg_reources
