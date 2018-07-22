@@ -90,7 +90,7 @@ def make_wheel(scratch_dir="/tmp/jdtest", python_tag=None, callback=None, **extr
         md5 = hashlib.md5(f.read()).hexdigest()
     if callback is not None:
         # contribute to test index
-        callback(name=name, path=dist_path, checksum=md5)
+        callback(name=name, path=dist_path, urlfragment='#md5='+md5)
     return dist, dist_path, md5
 
 
@@ -99,9 +99,9 @@ def add_to_index(requests_mock):
 
     index_data = defaultdict(list)  # fake PyPI
 
-    def add_package(name, path, checksum):
+    def add_package(name, path, urlfragment=''):
         canonical_name = canonicalize_name(name)
-        index_data[canonical_name].append((path, checksum))
+        index_data[canonical_name].append((path, urlfragment))
         with open(path, mode="rb") as f:
             content = f.read()
         fname = os.path.basename(path)
@@ -111,11 +111,11 @@ def add_to_index(requests_mock):
             headers={"Content-Type": "binary/octet-stream"},
             content=content,
         )
-        href = '<a href="./{fname}#md5={md5}">{fname}</a><br/>'
+        href = '<a href="./{fname}{urlfragment}">{fname}</a><br/>'
         links = {
             os.path.basename(path): md5 for path, md5 in index_data[canonical_name]
         }  # last one wins!
-        links = [href.format(fname=k, md5=v) for k, v in links.items()]
+        links = [href.format(fname=k, urlfragment=v) for k, v in links.items()]
         requests_mock.register_uri(
             method="GET",
             url="https://pypi.org/simple/{}/".format(name),

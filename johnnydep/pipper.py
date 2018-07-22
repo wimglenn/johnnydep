@@ -23,6 +23,8 @@ from pip._internal.req.req_install import InstallRequirement
 from pip._internal.req.req_install import Requirement
 from structlog import get_logger
 
+from johnnydep.compat import urlretrieve
+
 log = get_logger(__name__)
 
 
@@ -41,6 +43,21 @@ def compute_checksum(target, algorithm="sha256", blocksize=2 ** 13):
     return result
 
 
+def _get_hostname(url):
+    left, sep, right = url.partition('://')
+    host = right if sep else left
+    left, sep, right = host.partition('@')
+    host = right if sep else left
+    host, _sep, _port = host.partition(':')
+    host = host.strip('/')
+    return host
+
+
+def _trust_index(args, index_url):
+    if index_url != DEFAULT_INDEX:
+        args[-1:-1] = ["--trusted-host", _get_hostname(index_url)]
+
+
 @ttl_cache(maxsize=512, ttl=60 * 5)
 def get_versions(dist_name, index_url=DEFAULT_INDEX):
     bare_name = Requirement(dist_name).name
@@ -49,16 +66,18 @@ def get_versions(dist_name, index_url=DEFAULT_INDEX):
     wheel_args = [
         "--no-deps",
         "--no-cache-dir",
+        "--progress-bar=off",
         "--index-url",
         index_url,
         bare_name + "==showmethemoney",
     ]
+    _trust_index(wheel_args, index_url)
     options, args = wheel_cmd.parse_args(wheel_args)
     with testfixtures.LogCapture(level=logging.INFO) as log_capture, testfixtures.OutputCapture():
         try:
             wheel_cmd.run(options, args)
         except DistributionNotFound:
-            # expected.  we forced this by using a non-existing version number.
+            # expected. we forced this by using a non-existing version number.
             pass
     msg = "Could not find a version that satisfies the requirement %s (from versions: %s)"
     record = next(r for r in reversed(log_capture.records) if r.msg == msg)
@@ -69,12 +88,19 @@ def get_versions(dist_name, index_url=DEFAULT_INDEX):
 @ttl_cache(maxsize=512, ttl=60 * 5)
 def get_link(dist_name, index_url=DEFAULT_INDEX):
     install_req = InstallRequirement.from_req(req=dist_name, comes_from=None)
+    trusted_hosts = [_get_hostname(index_url)] if index_url != DEFAULT_INDEX else None
     with PipSession(retries=5) as session:
-        finder = PackageFinder(find_links=(), index_urls=[index_url], session=session)
+        finder = PackageFinder(find_links=(), index_urls=[index_url], session=session, trusted_hosts=trusted_hosts)
         result = finder.find_requirement(install_req, upgrade=True)
-    url, sep, checksum = result.url.partition("#")
+    url, _sep, checksum = result.url.partition("#")
     assert url == result.url_without_fragment
-    data = {"url": url, "checksum": checksum or None}  # hashtype=srchash
+    if not checksum.startswith('md5=') and not checksum.startswith('sha256='):
+        # PyPI gives you the checksum in url fragment, as a convenience. But not all indices are so kind.
+        algorithm = 'md5'
+        fname, _headers = urlretrieve(url)
+        checksum = compute_checksum(target=fname, algorithm=algorithm)
+        checksum = '='.join([algorithm, checksum])
+    data = {"url": url, "checksum": checksum}
     return data
 
 
@@ -83,11 +109,12 @@ def get(dist_name, index_url=DEFAULT_INDEX):
     wheel_args = [
         "--no-deps",
         "--no-cache-dir",
+        "--progress-bar=off",
         "--index-url",
         index_url,
-        "--progress-bar=off",
         dist_name,
     ]
+    _trust_index(wheel_args, index_url)
     options, args = wheel_cmd.parse_args(wheel_args)
     log.debug("wheeling and dealing", cmd=" ".join(wheel_args))
     log_capture = testfixtures.LogCapture(level=logging.INFO)

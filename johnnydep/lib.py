@@ -93,17 +93,17 @@ class JohnnyDist(anytree.NodeMixin):
                 # we gotta do it the hard way ...
                 public_names = []
                 for name in namelist:
-                    if ".dist-info/" in name or ".egg-info/" in name:
-                        continue
-                    parts = name.split(os.sep)
-                    if len(parts) == 2 and parts[1] == "__init__.py":
-                        # found a top-level package
-                        public_names.append(parts[0])
-                    elif len(parts) == 1:
-                        name, ext = os.path.splitext(parts[0])
-                        if ext == ".py" or ext == ".so":
-                            # found a top level module
-                            public_names.append(name)
+                    if ".dist-info/" not in name and ".egg-info/" not in name:
+                        parts = name.split(os.sep)
+                        if len(parts) == 2 and parts[1] == "__init__.py":
+                            # found a top-level package
+                            public_names.append(parts[0])
+                        elif len(parts) == 1:
+                            # TODO: find or make an exhaustive list of file extensions importable
+                            name, ext = os.path.splitext(parts[0])
+                            if ext == ".py" or ext == ".so":
+                                # found a top level module
+                                public_names.append(name)
         else:
             all_names = zip.read(top_level_fname).decode("utf-8").strip().splitlines()
             public_names = [n for n in all_names if not n.startswith("_")]
@@ -177,12 +177,11 @@ class JohnnyDist(anytree.NodeMixin):
         try:
             return self.metadata["home_page"]
         except KeyError:
-            pass
-        for k in "python.details", "python.project":
-            try:
-                return self.metadata["extensions"][k]["project_urls"]["Home"]
-            except KeyError:
-                pass
+            for k in "python.details", "python.project":
+                try:
+                    return self.metadata["extensions"][k]["project_urls"]["Home"]
+                except KeyError:
+                    pass
         self.log.info("unknown homepage")
 
     @property
@@ -213,8 +212,13 @@ class JohnnyDist(anytree.NodeMixin):
 
     @property
     def version_latest_in_spec(self):
-        for v in reversed(self.versions_available):
+        avail = list(reversed(self.versions_available))
+        for v in avail:
             if v in self.req.specifier:
+                return v
+        # allow to get a pre-release if that's all the index has for us
+        for v in avail:
+            if self.req.specifier.contains(v, prereleases=True):
                 return v
 
     @property
@@ -353,5 +357,6 @@ def flatten_deps(johnnydist):
 
 
 # TODO: progress bar?
-# TODO: handle recursive dep tree
 # TODO: test dists to test pypi index, document pip failure modes
+# TODO: find spurious new line output in pipper - to reproduce: JohnnyDist('pyyaml')
+# TODO: don't infinitely recurse on circular dep tree

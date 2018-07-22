@@ -57,6 +57,26 @@ def test_version_latest_in_spec(make_dist):
     assert jdist.version_latest_in_spec == "2.3.4"
 
 
+def test_version_latest_in_spec_prerelease_not_chosen(make_dist):
+    make_dist(version="0.1")
+    make_dist(version="0.2a0")
+    jdist = JohnnyDist("jdtest")
+    assert jdist.version_latest_in_spec == "0.1"
+
+
+def test_version_latest_in_spec_prerelease_chosen(make_dist):
+    make_dist(name='alphaonly', version="0.2a0")
+    jdist = JohnnyDist("alphaonly")
+    assert jdist.version_latest_in_spec == "0.2a0"
+
+
+def test_version_latest_in_spec_prerelease_out_of_spec(make_dist):
+    make_dist(version="0.1")
+    make_dist(version="0.2a0")
+    with ShouldRaise(DistributionNotFound("No matching distribution found for jdtest>0.1")):
+        JohnnyDist("jdtest>0.1")
+
+
 def test_version_pinned_to_latest_in_spec(make_dist):
     make_dist(version="1.2.3")
     make_dist(version="2.3.4")
@@ -92,6 +112,12 @@ def test_homepage(make_dist):
     make_dist()
     jdist = JohnnyDist("jdtest")
     assert jdist.homepage == "https://www.example.org/default"
+
+
+def test_no_homepage(make_dist):
+    make_dist(url='')
+    jdist = JohnnyDist("jdtest")
+    assert jdist.homepage is None
 
 
 def test_dist_no_children(make_dist):
