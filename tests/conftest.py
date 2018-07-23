@@ -12,6 +12,7 @@ import requests_mock as _requests_mock
 from packaging.utils import canonicalize_name
 from setuptools import setup
 from testfixtures import OutputCapture
+from testfixtures import Replace
 from wimpy import working_directory
 
 from johnnydep.lib import get_wheel
@@ -72,7 +73,7 @@ def make_wheel(scratch_dir="/tmp/jdtest", python_tag=None, callback=None, **extr
         python_tag = "py2.py3"
     else:
         script_args.extend(["--python-tag", python_tag])
-    with working_directory(scratch_dir), OutputCapture() as cap:
+    with working_directory(scratch_dir), OutputCapture() as cap, Replace('sys.dont_write_bytecode', False):
         for fname in kwargs["py_modules"]:
             if os.path.exists(fname):
                 raise Exception("already exists: {}".format(fname))
