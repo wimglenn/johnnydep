@@ -21,7 +21,7 @@ setup(
         "oyaml",
         "pytoml",
         "packaging>=17.0",
-        "pip>=10.0.0",
+        "pip>=10,<18",
         "wheel>=0.31.0",
         "setuptools>=38.3",  # for pkg_reources
         "pkginfo>=1.4.2",
