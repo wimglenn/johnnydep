@@ -20,10 +20,10 @@ matrix:
 install:
   - pip install -r requirements-dev.txt
   - pip install --editable .
-  - pip install --upgrade pip setuptools wheel pytest
+  - pip install --upgrade setuptools wheel pytest
 
 script:
-  - pip freeze
+  - pip freeze --all
   - pytest --cov=johnnydep
 
 after_success:
