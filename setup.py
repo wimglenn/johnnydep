@@ -26,5 +26,5 @@ setup(
         "setuptools>=38.3",  # for pkg_reources
         "pkginfo>=1.4.2",
     ],
-    entry_points={"console_scripts": ["johnnydep=johnnydep.cli:main"]},
+    entry_points={"console_scripts": ["johnnydep=johnnydep.cli:main", "pipper=johnnydep.pipper:main"]},
 )

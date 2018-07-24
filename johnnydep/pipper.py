@@ -179,7 +179,6 @@ def main():
     parser = ArgumentParser()
     parser.add_argument("dist_name")
     parser.add_argument("--index-url", default=DEFAULT_INDEX)
-    parser.add_argument("-v", "--verbose", action="store_true")
     debug = {
         "sys.argv": sys.argv,
         "sys.executable": sys.executable,
@@ -189,8 +188,7 @@ def main():
         "pip.__file__": pip.__file__,
     }
     args = parser.parse_args()
-    # logging.basicConfig(level=logging.DEBUG if args.verbose else logging.WARNING)
-    # log.debug(str(debug))
+    log.debug('runtime info', **debug)
     result = get(dist_name=args.dist_name, index_url=args.index_url)
     print(json.dumps(result, indent=2, sort_keys=True, separators=(",", ": ")))
 
