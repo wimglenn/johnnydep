@@ -15,16 +15,15 @@ from testfixtures import OutputCapture
 from testfixtures import Replace
 from wimpy import working_directory
 
-from johnnydep.lib import get_wheel
-from johnnydep.pipper import get_link
-from johnnydep.pipper import get_versions
+from johnnydep import pipper
+
+# 63 passed in 12.23 seconds
 
 
 @pytest.fixture(autouse=True)
 def expire_caches():
-    get_wheel.cache_clear()
-    get_link.cache_clear()
-    get_versions.cache_clear()
+    pipper.get_versions.cache_clear()
+    pipper.get.cache_clear()
 
 
 @pytest.fixture(autouse=True)

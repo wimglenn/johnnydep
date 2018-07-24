@@ -8,10 +8,10 @@ from collections import OrderedDict
 
 import tabulate
 
-from johnnydep.lib import DEFAULT_INDEX
 from johnnydep.lib import JohnnyDist
 from johnnydep.lib import gen_table
 from johnnydep.logs import configure_logging
+from johnnydep.pipper import DEFAULT_INDEX
 
 FIELDS = OrderedDict(
     [

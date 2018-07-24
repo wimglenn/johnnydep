@@ -3,24 +3,18 @@
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import glob
 import hashlib
 import json
-import logging
 import os
+import subprocess
 import sys
+import tempfile
 from argparse import ArgumentParser
 
 import pip
-import testfixtures
+import pkg_resources
 from cachetools.func import ttl_cache
-from packaging.utils import canonicalize_name
-from pip._internal.commands.wheel import WheelCommand
-from pip._internal.download import PipSession
-from pip._internal.exceptions import DistributionNotFound
-from pip._internal.index import PackageFinder
-from pip._internal.req.req_install import InstallRequirement
-from pip._internal.req.req_install import Requirement
+from wimpy import working_directory
 from structlog import get_logger
 
 from johnnydep.compat import urlretrieve
@@ -58,119 +52,86 @@ def _trust_index(args, index_url):
         args[-1:-1] = ["--trusted-host", _get_hostname(index_url)]
 
 
+_pip_wheel_args = [
+        sys.executable,
+        '-m',
+        'pip',
+        'wheel',
+        '-vvv',  # --verbose x3
+        '--no-deps',
+        '--no-cache-dir',
+        '--disable-pip-version-check',
+]
+if int(pip.__version__.split('.')[0]) >= 10:
+    _pip_wheel_args.append('--progress-bar=off')
+
+
 @ttl_cache(maxsize=512, ttl=60 * 5)
 def get_versions(dist_name, index_url=DEFAULT_INDEX):
-    bare_name = Requirement(dist_name).name
+    bare_name = pkg_resources.Requirement.parse(dist_name).name
     log.debug("checking versions available", dist=bare_name)
-    wheel_cmd = WheelCommand()
-    wheel_args = [
-        "--no-deps",
-        "--no-cache-dir",
-        "--progress-bar=off",
-        "--index-url",
-        index_url,
-        bare_name + "==showmethemoney",
-    ]
-    _trust_index(wheel_args, index_url)
-    options, args = wheel_cmd.parse_args(wheel_args)
-    with testfixtures.LogCapture(level=logging.INFO) as log_capture, testfixtures.OutputCapture():
-        try:
-            wheel_cmd.run(options, args)
-        except DistributionNotFound:
-            # expected. we forced this by using a non-existing version number.
-            pass
-    msg = "Could not find a version that satisfies the requirement %s (from versions: %s)"
-    record = next(r for r in reversed(log_capture.records) if r.msg == msg)
-    _install_requirement, versions = record.args
+    args = _pip_wheel_args + [dist_name + "==showmethemoney"]
+    if index_url is not None:
+        args.insert(-1, '--index-url={}'.format(index_url))
+        _trust_index(args, index_url)
+    try:
+        out = subprocess.check_output(args, stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as err:
+        # expected. we forced this by using a non-existing version number.
+        out = getattr(err, 'stdout', b'')
+    else:
+        log.warning(out)
+        raise Exception("Unexpected success:" + " ".join(args))
+    out = out.decode('utf-8')
+    lines = []
+    for line in out.splitlines():
+        if line.strip().startswith('Could not find a version that satisfies the requirement'):
+            lines.append(line)
+    [line] = lines
+    prefix = '(from versions: '
+    start = line.index(prefix) + len(prefix)
+    stop = line.rfind(')')
+    versions = line[start:stop].split(', ')
     return versions
 
 
 @ttl_cache(maxsize=512, ttl=60 * 5)
-def get_link(dist_name, index_url=DEFAULT_INDEX):
-    install_req = InstallRequirement.from_req(req=dist_name, comes_from=None)
-    trusted_hosts = [_get_hostname(index_url)] if index_url != DEFAULT_INDEX else None
-    with PipSession(retries=5) as session:
-        finder = PackageFinder(find_links=(), index_urls=[index_url], session=session, trusted_hosts=trusted_hosts)
-        result = finder.find_requirement(install_req, upgrade=True)
-    url, _sep, checksum = result.url.partition("#")
-    assert url == result.url_without_fragment
+def get(dist_name, index_url=None):
+    args = _pip_wheel_args + [dist_name]
+    if index_url is not None:
+        args.insert(-1, '--index-url={}'.format(index_url))
+        _trust_index(args, index_url)
+    scratch_dir = tempfile.mkdtemp()
+    log.debug("wheeling and dealing", scratch_dir=scratch_dir, args=" ".join(args))
+    try:
+        out = subprocess.check_output(args, stderr=subprocess.STDOUT, cwd=scratch_dir)
+    except subprocess.CalledProcessError as err:
+        output = getattr(err, 'stdout', b'').decode('utf-8')
+        log.warning(output)
+        raise
+    log.debug("wheel command completed ok")
+    out = out.decode('utf-8')
+    links = []
+    for line in out.splitlines():
+        line = line.strip()
+        if line.startswith('Downloading from URL'):
+            link = line.split()[3]
+            links.append(link)
+    if len(links) != 1:
+        log.warning(out)
+        raise Exception('Expected only 1 link downloaded')
+    with working_directory(scratch_dir):
+        [whl] = [os.path.abspath(x) for x in os.listdir('.') if x.endswith('.whl')]
+    url, _sep, checksum = link.partition("#")
     if not checksum.startswith('md5=') and not checksum.startswith('sha256='):
         # PyPI gives you the checksum in url fragment, as a convenience. But not all indices are so kind.
         algorithm = 'md5'
-        fname, _headers = urlretrieve(url)
-        checksum = compute_checksum(target=fname, algorithm=algorithm)
+        if os.path.basename(whl) == url.rsplit('/')[-1]:
+            target = whl
+        else:
+            target, _headers = urlretrieve(url, scratch_dir)
+        checksum = compute_checksum(target=target, algorithm=algorithm)
         checksum = '='.join([algorithm, checksum])
-    data = {"url": url, "checksum": checksum}
-    return data
-
-
-def get(dist_name, index_url=DEFAULT_INDEX):
-    wheel_cmd = WheelCommand()
-    wheel_args = [
-        "--no-deps",
-        "--no-cache-dir",
-        "--progress-bar=off",
-        "--index-url",
-        index_url,
-        dist_name,
-    ]
-    _trust_index(wheel_args, index_url)
-    options, args = wheel_cmd.parse_args(wheel_args)
-    log.debug("wheeling and dealing", cmd=" ".join(wheel_args))
-    log_capture = testfixtures.LogCapture(level=logging.INFO)
-    output_capture = testfixtures.OutputCapture()
-    try:
-        with log_capture, output_capture:
-            wheel_cmd.run(options, args)
-    except Exception:
-        for record in log_capture.records:
-            log.debug(record.msg % record.args)
-        if output_capture.captured.strip():
-            log.debug(output_capture.captured)
-        raise
-    log.debug("wheel command completed ok")
-    install_req = whl = url = checksum = collected_name = None
-    for record in log_capture.records:
-        if record.msg == "Collecting %s":
-            [install_req] = record.args
-            url, _fragment, checksum = install_req.link.url.partition("#")
-        elif record.msg == "File was already downloaded %s":
-            [whl] = record.args
-        elif record.msg == "Saved %s":
-            [whl_rel] = record.args
-            whl = os.path.realpath(whl_rel)
-        elif record.msg == "Building wheels for collected packages: %s":
-            # only sdist was avail :(  this is annoying .. have to dig around to find the .whl
-            # it's not easy, because the filename is case sensitive but the req name isn't
-            [collected_name] = record.args
-        elif record.msg == "Successfully built %s" and (collected_name,) == record.args:
-            whls = glob.glob("*.whl")
-            whl = max(whls, key=lambda whl: os.stat(whl).st_mtime)
-            required_spec = Requirement(dist_name).specifier
-            name, version, the_rest = os.path.basename(whl).split("-", 2)
-            name_match = canonicalize_name(name) == canonicalize_name(install_req.req.name)
-            if not name_match or version not in required_spec:
-                # wat - the most recently modified wheel is not up to spec?  I think this can never happen ...
-                raise Exception("Something strange happened")
-    if None in {whl, url, checksum}:
-        log.warning("failed to get a wheel", dist=dist_name)
-        for record in log_capture.records:
-            log.debug("captured logs", msg=record.msg, args=record.args)
-        if output_capture.captured.strip():
-            log.debug("captured output", out=output_capture.captured)
-        raise Exception("No .whl")
-    if ".cache/pip/wheels" in url:
-        # wat? using --no-cache-dir should have prevented this possibility
-        raise Exception("url is cached ... fixme")
-    if not checksum:
-        # this can happen, for example, if wheel dug a file out of the pip cache instead of downloading it
-        # the wheel cache (~/.cache/pip/wheels/) directory structure is no good for us here, that's a sha224
-        # of the download link, not a proper content checksum. so let's just compute the checksum clientside.
-        md5 = compute_checksum(whl, algorithm="md5")
-        checksum = "md5={}".format(md5)
-    msg = "built wheel from source" if collected_name is not None else "found existing wheel"
-    log.info(msg, url=url, checksum=checksum)
-    whl = os.path.abspath(whl)
     result = {"path": whl, "url": url, "checksum": checksum}
     return result
 
@@ -195,17 +156,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-"""
-TODO: do this smarter
-
-from pip.download import PipSession
-from pip.req.req_install import InstallRequirement
-import johnnydep.lib
-
-with PipSession() as s:
-    p = pip.index.PackageFinder(find_links=[], index_urls=[johnnydep.lib.DEFAULT_INDEX], session=s)
-    r = InstallRequirement.from_line('oyaml')
-    r.populate_link(finder=p, upgrade=False, require_hashes=True)
-"""

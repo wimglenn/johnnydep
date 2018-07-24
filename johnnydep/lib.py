@@ -16,7 +16,6 @@ import pkg_resources
 import pkginfo
 import pytoml
 import wimpy
-from cachetools.func import ttl_cache
 from packaging.markers import default_environment
 from packaging.utils import canonicalize_name
 from packaging.utils import canonicalize_version
@@ -30,7 +29,6 @@ __all__ = ["JohnnyDist", "gen_table", "flatten_deps"]
 
 
 logger = get_logger(__name__)
-DEFAULT_INDEX = "https://pypi.org/simple"
 
 
 if sys.version_info < (3,):
@@ -46,7 +44,7 @@ class OrderedDefaultListDict(OrderedDict):
 
 
 class JohnnyDist(anytree.NodeMixin):
-    def __init__(self, req_string, parent=None, index_url=DEFAULT_INDEX):
+    def __init__(self, req_string, parent=None, index_url=None):
         self.dist_path = None
         if req_string.endswith(".whl") and os.path.isfile(req_string):
             self.dist_path = req_string
@@ -73,7 +71,7 @@ class JohnnyDist(anytree.NodeMixin):
         if self.dist_path is None:
             log.debug("fetching best wheel")
             with wimpy.working_directory(self.tmp()):
-                self.dist_path = get_wheel(req_string, index_url=self.index_url)["path"]
+                self.dist_path = pipper.get(req_string, index_url=self.index_url)["path"]
         self.parent = parent
         self._recursed = False
 
@@ -191,8 +189,7 @@ class JohnnyDist(anytree.NodeMixin):
 
     @cached_property
     def versions_available(self):
-        all_versions = pipper.get_versions(self.name, index_url=self.index_url)
-        return all_versions.split(", ")
+        return pipper.get_versions(self.name, index_url=self.index_url)
 
     @cached_property
     def version_installed(self):
@@ -260,7 +257,7 @@ class JohnnyDist(anytree.NodeMixin):
 
     @cached_property
     def _best(self):
-        return pipper.get_link(self.pinned, index_url=self.index_url)
+        return pipper.get(self.pinned, index_url=self.index_url)
 
     @property
     def download_link(self):
@@ -294,11 +291,6 @@ class JohnnyDist(anytree.NodeMixin):
         return result
 
     serialize = serialise
-
-
-@ttl_cache(maxsize=512, ttl=60 * 5)  # memo with 5 minutes time-to-live
-def get_wheel(dist_name, index_url=DEFAULT_INDEX):
-    return pipper.get(dist_name=dist_name, index_url=index_url)
 
 
 def gen_table(johnnydist, extra_cols=()):
