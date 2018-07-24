@@ -67,7 +67,7 @@ if int(pip.__version__.split('.')[0]) >= 10:
 
 
 @ttl_cache(maxsize=512, ttl=60 * 5)
-def get_versions(dist_name, index_url=DEFAULT_INDEX):
+def get_versions(dist_name, index_url=None):
     bare_name = pkg_resources.Requirement.parse(dist_name).name
     log.debug("checking versions available", dist=bare_name)
     args = _pip_wheel_args + [dist_name + "==showmethemoney"]
@@ -139,7 +139,7 @@ def get(dist_name, index_url=None):
 def main():
     parser = ArgumentParser()
     parser.add_argument("dist_name")
-    parser.add_argument("--index-url", default=DEFAULT_INDEX)
+    parser.add_argument("--index-url")
     debug = {
         "sys.argv": sys.argv,
         "sys.executable": sys.executable,

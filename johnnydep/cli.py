@@ -11,7 +11,7 @@ import tabulate
 from johnnydep.lib import JohnnyDist
 from johnnydep.lib import gen_table
 from johnnydep.logs import configure_logging
-from johnnydep.pipper import DEFAULT_INDEX
+
 
 FIELDS = OrderedDict(
     [
@@ -41,7 +41,7 @@ def main():
     parser = ArgumentParser()
     parser.add_argument("req", help="The project name or requirement specifier")
     parser.add_argument("--verbose", "-v", default=0, action="count")
-    parser.add_argument("--index-url", "-i", default=DEFAULT_INDEX)
+    parser.add_argument("--index-url", "-i")
     parser.add_argument(
         "--output-format",
         "-o",
