@@ -1,6 +1,7 @@
 pytest
 pytest-mock
 pytest-cov
+pytest-socket
 requests-mock
 coveralls
-wheel==0.30.0
+wimpy==0.3  # just something we can pin
