@@ -11,6 +11,7 @@ import tabulate
 from johnnydep.lib import JohnnyDist
 from johnnydep.lib import gen_table
 from johnnydep.logs import configure_logging
+from johnnydep.util import python_interpreter
 
 
 FIELDS = OrderedDict(
@@ -40,7 +41,6 @@ def main():
     default_fields = os.environ.get("JOHNNYDEP_FIELDS", "name,summary").split(",")
     parser = ArgumentParser()
     parser.add_argument("req", help="The project name or requirement specifier")
-    parser.add_argument("--verbose", "-v", default=0, action="count")
     parser.add_argument("--index-url", "-i")
     parser.add_argument(
         "--output-format",
@@ -54,11 +54,13 @@ def main():
     parser.add_argument(
         "--fields", "-f", nargs="*", default=default_fields, choices=list(FIELDS) + ["ALL"]
     )
+    parser.add_argument("--for-python", "-p", dest='env', type=python_interpreter)
+    parser.add_argument("--verbose", "-v", default=0, action="count")
     args = parser.parse_args()
     if "ALL" in args.fields:
         args.fields = list(FIELDS)
     configure_logging(verbosity=args.verbose)
-    dist = JohnnyDist(args.req, index_url=args.index_url)
+    dist = JohnnyDist(args.req, index_url=args.index_url, env=args.env)
     if args.output_format == "text":
         table = gen_table(dist, extra_cols=args.fields)
         tabulate.PRESERVE_WHITESPACE = True

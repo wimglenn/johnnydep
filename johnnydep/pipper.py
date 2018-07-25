@@ -18,6 +18,7 @@ from wimpy import working_directory
 from structlog import get_logger
 
 from johnnydep.compat import urlretrieve
+from johnnydep.util import python_interpreter
 
 log = get_logger(__name__)
 
@@ -67,13 +68,15 @@ if int(pip.__version__.split('.')[0]) >= 10:
 
 
 @ttl_cache(maxsize=512, ttl=60 * 5)
-def get_versions(dist_name, index_url=None):
+def get_versions(dist_name, index_url=None, env=None):
     bare_name = pkg_resources.Requirement.parse(dist_name).name
     log.debug("checking versions available", dist=bare_name)
     args = _pip_wheel_args + [dist_name + "==showmethemoney"]
     if index_url is not None:
         args.insert(-1, '--index-url={}'.format(index_url))
         _trust_index(args, index_url)
+    if env is not None:
+        args[0] = dict(env)['python_executable']
     try:
         out = subprocess.check_output(args, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as err:
@@ -96,11 +99,13 @@ def get_versions(dist_name, index_url=None):
 
 
 @ttl_cache(maxsize=512, ttl=60 * 5)
-def get(dist_name, index_url=None):
+def get(dist_name, index_url=None, env=None):
     args = _pip_wheel_args + [dist_name]
     if index_url is not None:
         args.insert(-1, '--index-url={}'.format(index_url))
         _trust_index(args, index_url)
+    if env is not None:
+        args[0] = dict(env)['python_executable']
     scratch_dir = tempfile.mkdtemp()
     log.debug("wheeling and dealing", scratch_dir=scratch_dir, args=" ".join(args))
     try:
@@ -139,7 +144,8 @@ def get(dist_name, index_url=None):
 def main():
     parser = ArgumentParser()
     parser.add_argument("dist_name")
-    parser.add_argument("--index-url")
+    parser.add_argument("--index-url", "-i")
+    parser.add_argument("--for-python", "-p", dest='env', type=python_interpreter)
     debug = {
         "sys.argv": sys.argv,
         "sys.executable": sys.executable,
@@ -150,7 +156,7 @@ def main():
     }
     args = parser.parse_args()
     log.debug('runtime info', **debug)
-    result = get(dist_name=args.dist_name, index_url=args.index_url)
+    result = get(dist_name=args.dist_name, index_url=args.index_url, env=args.env)
     print(json.dumps(result, indent=2, sort_keys=True, separators=(",", ": ")))
 
 

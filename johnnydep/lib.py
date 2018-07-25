@@ -44,7 +44,7 @@ class OrderedDefaultListDict(OrderedDict):
 
 
 class JohnnyDist(anytree.NodeMixin):
-    def __init__(self, req_string, parent=None, index_url=None):
+    def __init__(self, req_string, parent=None, index_url=None, env=None):
         self.dist_path = None
         if req_string.endswith(".whl") and os.path.isfile(req_string):
             self.dist_path = req_string
@@ -65,13 +65,22 @@ class JohnnyDist(anytree.NodeMixin):
         if parent is not None:
             self.index_url = parent.index_url
             self.required_by = [str(parent.req)]
+            self.env = parent.env
+            self.env_data = parent.env_data
         else:
             self.index_url = index_url
             self.required_by = []
+            self.env = env
+            if self.env is None:
+                self.env_data = default_environment()
+            else:
+                self.env_data = dict(self.env)
+            log.debug("target env", **self.env_data)
         if self.dist_path is None:
             log.debug("fetching best wheel")
             with wimpy.working_directory(self.tmp()):
-                self.dist_path = pipper.get(req_string, index_url=self.index_url)["path"]
+                data = pipper.get(req_string, index_url=self.index_url, env=self.env)
+                self.dist_path = data["path"]
         self.parent = parent
         self._recursed = False
 
@@ -120,12 +129,11 @@ class JohnnyDist(anytree.NodeMixin):
     @property
     def requires(self):
         """Just the strings (name and spec) for my immediate dependencies. Cheap."""
-        # TODO: gets for other env / cross-compat?
         all_requires = self.metadata.get("requires_dist", [])
         if not all_requires:
             return []
-        this_environment = default_environment()
         result = []
+        env = self.env_data
         for req_str in all_requires:
             req = pkg_resources.Requirement.parse(req_str)
             # TODO: find a better way to parse this
@@ -142,7 +150,7 @@ class JohnnyDist(anytree.NodeMixin):
                 if not req.marker:
                     result.append(req_short)
                     continue
-                if req.marker.evaluate():
+                if req.marker.evaluate(env):
                     self.log.debug("included conditional dep", req=req_str)
                     result.append(req_short)
                 else:
@@ -150,9 +158,8 @@ class JohnnyDist(anytree.NodeMixin):
                 continue
             assert extras
             assert set(extras) <= set(self.extras_requested)
-            if not req.marker or any(
-                req.marker.evaluate(dict(extra=extra, **this_environment)) for extra in extras
-            ):
+            assert 'extra' not in env
+            if not req.marker or any(req.marker.evaluate(dict(extra=e, **env)) for e in extras):
                 self.log.debug("included requested extra", req=req_str)
                 result.append(req_short)
             else:
@@ -189,7 +196,7 @@ class JohnnyDist(anytree.NodeMixin):
 
     @cached_property
     def versions_available(self):
-        return pipper.get_versions(self.name, index_url=self.index_url)
+        return pipper.get_versions(self.name, index_url=self.index_url, env=self.env)
 
     @cached_property
     def version_installed(self):
@@ -257,7 +264,7 @@ class JohnnyDist(anytree.NodeMixin):
 
     @cached_property
     def _best(self):
-        return pipper.get(self.pinned, index_url=self.index_url)
+        return pipper.get(self.pinned, index_url=self.index_url, env=self.env)
 
     @property
     def download_link(self):
