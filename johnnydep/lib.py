@@ -15,6 +15,7 @@ import oyaml
 import pkg_resources
 import pkginfo
 import pytoml
+import tabulate
 import wimpy
 from packaging.markers import default_environment
 from packaging.utils import canonicalize_name
@@ -293,6 +294,10 @@ class JohnnyDist(anytree.NodeMixin):
             result = "\n".join([pytoml.dumps(d) for d in data])
         elif format == "pinned":
             result = "\n".join([d["pinned"] for d in data])
+        elif format ==  "human":
+            table = gen_table(self, extra_cols=fields)
+            tabulate.PRESERVE_WHITESPACE = True
+            result = tabulate.tabulate(table, headers="keys")
         else:
             raise Exception("Unsupported format")
         return result

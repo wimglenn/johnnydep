@@ -48,35 +48,34 @@ def _get_hostname(url):
     return host
 
 
-def _trust_index(args, index_url):
-    if index_url != DEFAULT_INDEX:
-        args[-1:-1] = ["--trusted-host", _get_hostname(index_url)]
-
-
-_pip_wheel_args = [
-        sys.executable,
-        '-m',
-        'pip',
-        'wheel',
-        '-vvv',  # --verbose x3
-        '--no-deps',
-        '--no-cache-dir',
-        '--disable-pip-version-check',
-]
-if int(pip.__version__.split('.')[0]) >= 10:
-    _pip_wheel_args.append('--progress-bar=off')
+def _get_wheel_args(index_url, env):
+    args = [
+            sys.executable,
+            '-m',
+            'pip',
+            'wheel',
+            '-vvv',  # --verbose x3
+            '--no-deps',
+            '--no-cache-dir',
+            '--disable-pip-version-check',
+    ]
+    if index_url is not None and index_url != DEFAULT_INDEX:
+        args += ["--index-url", index_url, "--trusted-host", _get_hostname(index_url)]
+    if env is None:
+        pip_version = pip.__version__
+    else:
+        pip_version = dict(env)['pip_version']
+        args[0] = dict(env)['python_executable']
+    if int(pip_version.split('.')[0]) >= 10:
+        args.append('--progress-bar=off')
+    return args
 
 
 @ttl_cache(maxsize=512, ttl=60 * 5)
 def get_versions(dist_name, index_url=None, env=None):
     bare_name = pkg_resources.Requirement.parse(dist_name).name
     log.debug("checking versions available", dist=bare_name)
-    args = _pip_wheel_args + [dist_name + "==showmethemoney"]
-    if index_url is not None:
-        args.insert(-1, '--index-url={}'.format(index_url))
-        _trust_index(args, index_url)
-    if env is not None:
-        args[0] = dict(env)['python_executable']
+    args = _get_wheel_args(index_url, env) + [dist_name + "==showmethemoney"]
     try:
         out = subprocess.check_output(args, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as err:
@@ -100,12 +99,7 @@ def get_versions(dist_name, index_url=None, env=None):
 
 @ttl_cache(maxsize=512, ttl=60 * 5)
 def get(dist_name, index_url=None, env=None):
-    args = _pip_wheel_args + [dist_name]
-    if index_url is not None:
-        args.insert(-1, '--index-url={}'.format(index_url))
-        _trust_index(args, index_url)
-    if env is not None:
-        args[0] = dict(env)['python_executable']
+    args = _get_wheel_args(index_url, env) + [dist_name]
     scratch_dir = tempfile.mkdtemp()
     log.debug("wheeling and dealing", scratch_dir=scratch_dir, args=" ".join(args))
     try:

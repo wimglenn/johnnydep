@@ -6,10 +6,7 @@ import os
 from argparse import ArgumentParser
 from collections import OrderedDict
 
-import tabulate
-
 from johnnydep.lib import JohnnyDist
-from johnnydep.lib import gen_table
 from johnnydep.logs import configure_logging
 from johnnydep.util import python_interpreter
 
@@ -45,8 +42,8 @@ def main():
     parser.add_argument(
         "--output-format",
         "-o",
-        choices=["json", "yaml", "text", "python", "toml", "pinned"],
-        default="text",
+        choices=["human", "json", "yaml", "python", "toml", "pinned"],
+        default="human",
     )
     parser.add_argument(
         "--no-deps", help="Don't recurse the dependency tree", dest="recurse", action="store_false"
@@ -61,9 +58,4 @@ def main():
         args.fields = list(FIELDS)
     configure_logging(verbosity=args.verbose)
     dist = JohnnyDist(args.req, index_url=args.index_url, env=args.env)
-    if args.output_format == "text":
-        table = gen_table(dist, extra_cols=args.fields)
-        tabulate.PRESERVE_WHITESPACE = True
-        print(tabulate.tabulate(table, headers="keys"))
-    else:
-        print(dist.serialise(fields=args.fields, format=args.output_format, recurse=args.recurse))
+    print(dist.serialise(fields=args.fields, format=args.output_format, recurse=args.recurse))
