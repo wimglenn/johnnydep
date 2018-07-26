@@ -43,8 +43,8 @@ def _get_hostname(url):
     host = right if sep else left
     left, sep, right = host.partition('@')
     host = right if sep else left
+    host, _sep, _path = host.partition('/')
     host, _sep, _port = host.partition(':')
-    host = host.strip('/')
     return host
 
 
