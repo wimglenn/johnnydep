@@ -118,7 +118,7 @@ def get(dist_name, index_url=None, env=None):
             links.append(link)
     if len(links) != 1:
         log.warning(out)
-        raise Exception('Expected only 1 link downloaded')
+        raise Exception('Expected exactly 1 link downloaded')
     with working_directory(scratch_dir):
         [whl] = [os.path.abspath(x) for x in os.listdir('.') if x.endswith('.whl')]
     url, _sep, checksum = link.partition("#")
