@@ -80,7 +80,7 @@ def get_versions(dist_name, index_url=None, env=None):
         out = subprocess.check_output(args, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as err:
         # expected. we forced this by using a non-existing version number.
-        out = getattr(err, 'stdout', b'')
+        out = getattr(err, 'output', b'')
     else:
         log.warning(out)
         raise Exception("Unexpected success:" + " ".join(args))
@@ -105,7 +105,7 @@ def get(dist_name, index_url=None, env=None):
     try:
         out = subprocess.check_output(args, stderr=subprocess.STDOUT, cwd=scratch_dir)
     except subprocess.CalledProcessError as err:
-        output = getattr(err, 'stdout', b'').decode('utf-8')
+        output = getattr(err, 'output', b'').decode('utf-8')
         log.warning(output)
         raise
     log.debug("wheel command completed ok")

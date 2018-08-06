@@ -16,8 +16,6 @@ from wimpy import working_directory
 
 from johnnydep import pipper
 
-# 63 passed in 12.23 seconds
-
 
 @pytest.fixture(autouse=True)
 def expire_caches():
