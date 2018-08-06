@@ -2,6 +2,5 @@ pytest
 pytest-mock
 pytest-cov
 pytest-socket
-requests-mock
 coveralls
 wimpy==0.3  # just something we can pin

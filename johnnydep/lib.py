@@ -280,6 +280,10 @@ class JohnnyDist(anytree.NodeMixin):
             # user-specified fields are ignored/invalid in this case
             fields = ("pinned",)
         data = [OrderedDict([(f, getattr(self, f, None)) for f in fields])]
+        if format == "human":
+            table = gen_table(self, extra_cols=fields)
+            tabulate.PRESERVE_WHITESPACE = True
+            return tabulate.tabulate(table, headers="keys")
         if recurse and self.requires:
             deps = flatten_deps(self)
             next(deps)  # skip over root
@@ -294,10 +298,6 @@ class JohnnyDist(anytree.NodeMixin):
             result = "\n".join([pytoml.dumps(d) for d in data])
         elif format == "pinned":
             result = "\n".join([d["pinned"] for d in data])
-        elif format ==  "human":
-            table = gen_table(self, extra_cols=fields)
-            tabulate.PRESERVE_WHITESPACE = True
-            result = tabulate.tabulate(table, headers="keys")
         else:
             raise Exception("Unsupported format")
         return result

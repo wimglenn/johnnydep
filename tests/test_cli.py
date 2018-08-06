@@ -153,7 +153,7 @@ def test_all_fields_toml_out(mocker, capsys, make_dist):
         version_installed = "0.3"
         version_latest = "0.3"
         version_latest_in_spec = "0.3"
-        download_link = "https://pypi.org/simple/wimpy/wimpy-0.3-py2.py3-none-any.whl"
+        download_link = "http://fakeindex/wimpy-0.3-py2.py3-none-any.whl"
         checksum = "md5={checksum}"
 
     """.format(

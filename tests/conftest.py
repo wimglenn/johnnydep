@@ -3,16 +3,15 @@ from __future__ import unicode_literals
 
 import hashlib
 import os
-import sys
+import subprocess
 from collections import defaultdict
 from functools import partial
 
 import pytest
-import requests_mock as _requests_mock
-from packaging.utils import canonicalize_name
 from setuptools import setup
 from testfixtures import OutputCapture
 from testfixtures import Replace
+from wimpy import strip_prefix
 from wimpy import working_directory
 
 from johnnydep import pipper
@@ -24,18 +23,6 @@ from johnnydep import pipper
 def expire_caches():
     pipper.get_versions.cache_clear()
     pipper.get.cache_clear()
-
-
-@pytest.fixture(autouse=True)
-def requests_mock(mocker):
-    adapter = _requests_mock.Adapter()
-    mocker.patch("pip._vendor.requests.sessions.Session.get_adapter", return_value=adapter)
-    if sys.version_info.major == 2:
-        target = "socket.gethostbyname"
-    else:
-        target = "urllib.request.socket.gethostbyname"
-    mocker.patch(target, {"pypi.org": "151.101.44.223"}.__getitem__)
-    return adapter
 
 
 @pytest.fixture(autouse=True)
@@ -95,43 +82,41 @@ def make_wheel(scratch_dir="/tmp/jdtest", python_tag=None, callback=None, **extr
 
 
 @pytest.fixture()
-def add_to_index(requests_mock):
-
-    index_data = defaultdict(list)  # fake PyPI
+def add_to_index():
+    index_data = {}
 
     def add_package(name, path, urlfragment=''):
-        canonical_name = canonicalize_name(name)
-        index_data[canonical_name].append((path, urlfragment))
-        with open(path, mode="rb") as f:
-            content = f.read()
-        fname = os.path.basename(path)
-        requests_mock.register_uri(
-            method="GET",
-            url="https://pypi.org/simple/{}/{}".format(name, fname),
-            headers={"Content-Type": "binary/octet-stream"},
-            content=content,
-        )
-        href = '<a href="./{fname}{urlfragment}">{fname}</a><br/>'
-        links = {
-            os.path.basename(path): md5 for path, md5 in index_data[canonical_name]
-        }  # last one wins!
-        links = [href.format(fname=k, urlfragment=v) for k, v in links.items()]
-        requests_mock.register_uri(
-            method="GET",
-            url="https://pypi.org/simple/{}/".format(name),
-            headers={"Content-Type": "text/html"},
-            text="""
-            <!DOCTYPE html><html><head><title>Links for {name}</title></head>
-            <body><h1>Links for {name}</h1>
-            {links}
-            </body></html>""".format(
-                name=name, links="\n".join(links)
-            ),
-        )
+        index_data[path] = (name, urlfragment)
 
+    add_package.index_data = index_data
     yield add_package
 
 
 @pytest.fixture()
 def make_dist(tmpdir, add_to_index):
     return partial(make_wheel, scratch_dir=str(tmpdir), callback=add_to_index)
+
+
+@pytest.fixture(autouse=True)
+def fake_subprocess(mocker, add_to_index):
+
+    index_data = add_to_index.index_data
+    subprocess_check_output = subprocess.check_output
+
+    def wheel_proc(args, stderr, cwd=None):
+        exe = args[0]
+        req = args[-1]
+        links = ['--find-links={}'.format(p) for p in index_data]
+        args = [exe, '-m', 'pip', 'wheel', '-vvv', '--no-index', '--no-deps', '--no-cache-dir', '--disable-pip-version-check', '--progress-bar=off'] + links + [req]
+        output = subprocess_check_output(args, stderr=stderr, cwd=cwd)
+        lines = output.decode().splitlines()
+        for line in lines:
+            line = line.strip()
+            if line.startswith('Saved ./'):
+                fname = strip_prefix(line, 'Saved ./')
+                inject = '\n  Downloading from URL http://fakeindex/{}\n'.format(fname)
+                output += inject.encode()
+                break
+        return output
+
+    mocker.patch('johnnydep.pipper.subprocess.check_output', wheel_proc)

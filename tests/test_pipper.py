@@ -18,7 +18,7 @@ def test_pipper(mocker, capsys, make_dist, tmpdir):
     output = json.loads(out)
     path = output.pop("path")
     checksum = output.pop("checksum")
-    assert output == {"url": "https://pypi.org/simple/fakedist/fakedist-1.2.3-py2.py3-none-any.whl"}
+    assert output == {"url": "http://fakeindex/fakedist-1.2.3-py2.py3-none-any.whl"}
     assert os.path.isfile(path)
     assert os.path.basename(path) == "fakedist-1.2.3-py2.py3-none-any.whl"
     assert len(checksum) == 4 + 32

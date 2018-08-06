@@ -2,10 +2,10 @@
 from __future__ import unicode_literals
 
 import hashlib
+from subprocess import CalledProcessError
 from textwrap import dedent
 
-from pip._internal.exceptions import DistributionNotFound
-from testfixtures import ShouldRaise
+import pytest
 
 from johnnydep.lib import JohnnyDist
 from johnnydep.lib import flatten_deps
@@ -14,8 +14,10 @@ from johnnydep.lib import flatten_deps
 def test_version_nonexisting(make_dist):
     # v0.404 does not exist in index
     make_dist()
-    with ShouldRaise(DistributionNotFound("No matching distribution found for jdtest==0.404")):
+    with pytest.raises(CalledProcessError) as cm:
         JohnnyDist("jdtest==0.404")
+    msg = "DistributionNotFound: No matching distribution found for jdtest==0.404\n"
+    assert cm.value.output.decode().endswith(msg)
 
 
 def test_import_names_empty(make_dist):
@@ -73,8 +75,10 @@ def test_version_latest_in_spec_prerelease_chosen(make_dist):
 def test_version_latest_in_spec_prerelease_out_of_spec(make_dist):
     make_dist(version="0.1")
     make_dist(version="0.2a0")
-    with ShouldRaise(DistributionNotFound("No matching distribution found for jdtest>0.1")):
+    with pytest.raises(CalledProcessError) as cm:
         JohnnyDist("jdtest>0.1")
+    msg = "DistributionNotFound: No matching distribution found for jdtest>0.1\n"
+    assert cm.value.output.decode().endswith(msg)
 
 
 def test_version_pinned_to_latest_in_spec(make_dist):
@@ -97,8 +101,10 @@ def test_version_in_spec_not_avail(make_dist):
     make_dist(version="1.2.3")
     make_dist(version="2.3.4")
     make_dist(version="3.4.5")
-    with ShouldRaise(DistributionNotFound("No matching distribution found for jdtest>4")):
+    with pytest.raises(CalledProcessError) as cm:
         JohnnyDist("jdtest>4")
+    msg = "DistributionNotFound: No matching distribution found for jdtest>4\n"
+    assert cm.value.output.decode().endswith(msg)
 
 
 def test_project_name_different_from_canonical_name(make_dist):
@@ -130,7 +136,7 @@ def test_download_link(make_dist):
     make_dist()
     jdist = JohnnyDist("jdtest")
     # this link is coming from a faked package index set up in conftest.py
-    assert jdist.download_link == "https://pypi.org/simple/jdtest/jdtest-0.1.2-py2.py3-none-any.whl"
+    assert jdist.download_link == "http://fakeindex/jdtest-0.1.2-py2.py3-none-any.whl"
 
 
 def test_checksum_md5(make_dist):
@@ -315,8 +321,9 @@ def test_serialiser_pinned(make_dist):
 def test_serialiser_unsupported(make_dist):
     make_dist()
     jdist = JohnnyDist("jdtest")
-    with ShouldRaise(Exception("Unsupported format")):
+    with pytest.raises(Exception) as cm:
         jdist.serialise(format="bogus")
+    assert cm.value.args == ("Unsupported format",)
 
 
 def test_serialiser_with_children(make_dist):
@@ -401,5 +408,7 @@ def test_resolve_unresolvable(make_dist):
     ]
     gen = flatten_deps(dist)
     assert next(gen) is dist
-    with ShouldRaise(DistributionNotFound("No matching distribution found for dist2<=0.1,>0.2")):
+    with pytest.raises(CalledProcessError) as cm:
         next(gen)
+    msg = "DistributionNotFound: No matching distribution found for dist2<=0.1,>0.2\n"
+    assert cm.value.output.decode().endswith(msg)

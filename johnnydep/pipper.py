@@ -116,6 +116,9 @@ def get(dist_name, index_url=None, env=None):
         if line.startswith('Downloading from URL'):
             link = line.split()[3]
             links.append(link)
+        elif line.startswith('Source in ') and 'which satisfies requirement' in line:
+            link = line.split()[-1]
+            links.append(link)
     if len(links) != 1:
         log.warning(out)
         raise Exception('Expected exactly 1 link downloaded')
@@ -128,7 +131,8 @@ def get(dist_name, index_url=None, env=None):
         if os.path.basename(whl) == url.rsplit('/')[-1]:
             target = whl
         else:
-            target, _headers = urlretrieve(url, scratch_dir)
+            scratch_file = os.path.join(scratch_dir, os.path.basename(url))
+            target, _headers = urlretrieve(url, scratch_file)
         checksum = compute_checksum(target=target, algorithm=algorithm)
         checksum = '='.join([algorithm, checksum])
     result = {"path": whl, "url": url, "checksum": checksum}
