@@ -16,7 +16,7 @@ def test_bad_python_interpreter_triggers_argparse_error(mocker):
 
 
 def test_bad_python_interpreter_output_triggers_argparse_error(mocker):
-    mocker.patch('johnnydep.util.check_output', return_value='wtf')
+    mocker.patch('johnnydep.util.check_output', return_value=b'wtf')
     with pytest.raises(ArgumentTypeError) as cm:
         python_interpreter('whatever')
     assert str(cm.value) == 'Invalid python env output'

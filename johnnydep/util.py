@@ -13,7 +13,7 @@ def python_interpreter(path):
     except CalledProcessError:
         raise ArgumentTypeError('Invalid python env call')
     try:
-        env = json.loads(env_json)
+        env = json.loads(env_json.decode())
     except JSONDecodeError:
         raise ArgumentTypeError('Invalid python env output')
     frozen = tuple(map(tuple, env))
