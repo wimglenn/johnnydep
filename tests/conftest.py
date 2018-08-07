@@ -8,8 +8,6 @@ from functools import partial
 
 import pytest
 from setuptools import setup
-from testfixtures import OutputCapture
-from testfixtures import Replace
 from wimpy import strip_prefix
 from wimpy import working_directory
 
@@ -44,7 +42,7 @@ default_setup_kwargs = dict(
 )
 
 
-def make_wheel(scratch_dir="/tmp/jdtest", python_tag=None, callback=None, **extra):
+def make_wheel(capsys, mocker, scratch_dir="/tmp/jdtest", python_tag=None, callback=None, **extra):
     kwargs = default_setup_kwargs.copy()
     kwargs.update(extra)
     name = kwargs["name"]
@@ -56,14 +54,17 @@ def make_wheel(scratch_dir="/tmp/jdtest", python_tag=None, callback=None, **extr
         python_tag = "py2.py3"
     else:
         script_args.extend(["--python-tag", python_tag])
-    with working_directory(scratch_dir), OutputCapture() as cap, Replace('sys.dont_write_bytecode', False):
+    mocker.patch('sys.dont_write_bytecode', False)
+    with working_directory(scratch_dir):
         for fname in kwargs["py_modules"]:
             if os.path.exists(fname):
                 raise Exception("already exists: {}".format(fname))
             with open(fname + ".py", "w"):
                 pass
         dist = setup(script_args=script_args, **kwargs)
-    for line in cap.captured.splitlines():
+    out, err = capsys.readouterr()
+    lines = out.splitlines() + err.splitlines()
+    for line in lines:
         if "warning" in line.lower():
             raise Exception("setup warning: {}".format(line))
     dist_dir = os.path.join(scratch_dir, "dist")
@@ -90,8 +91,8 @@ def add_to_index():
 
 
 @pytest.fixture()
-def make_dist(tmpdir, add_to_index):
-    return partial(make_wheel, scratch_dir=str(tmpdir), callback=add_to_index)
+def make_dist(tmpdir, add_to_index, capsys, mocker):
+    return partial(make_wheel, capsys=capsys, mocker=mocker, scratch_dir=str(tmpdir), callback=add_to_index)
 
 
 @pytest.fixture(autouse=True)

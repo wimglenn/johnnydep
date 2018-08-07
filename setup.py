@@ -17,7 +17,6 @@ setup(
         "wimpy",
         "colorama",  # pretty output for structlog
         "cachetools",
-        "testfixtures",  # TODO: remove this
         "oyaml",
         "pytoml",
         "pip",
