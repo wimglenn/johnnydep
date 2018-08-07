@@ -41,8 +41,6 @@ def main():
         import pip
     except ImportError:
         raise EnvironmentError("pip installation is required")
-    if int(pip.__version__.split('.')[0]) < 9:
-        raise EnvironmentError("pip installation is old, >= 9.0.0 required")
     try:
         import wheel
     except ImportError:
