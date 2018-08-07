@@ -18,9 +18,9 @@ matrix:
   - python: "nightly"
 
 install:
+  - pip install --upgrade pip setuptools wheel pytest
   - pip install -r requirements-dev.txt
   - pip install --editable .
-  - pip install --upgrade setuptools wheel pytest
 
 script:
   - pip freeze --all

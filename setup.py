@@ -20,8 +20,8 @@ setup(
         "testfixtures",  # TODO: remove this
         "oyaml",
         "pytoml",
-        "packaging>=17",
         "pip",
+        "packaging>=17",
         "wheel>=0.31.0",
         "setuptools>=38.3",  # for pkg_resources
         "pkginfo>=1.4.2",
