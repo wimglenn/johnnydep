@@ -4,7 +4,6 @@ from __future__ import unicode_literals
 import hashlib
 import os
 import subprocess
-from collections import defaultdict
 from functools import partial
 
 import pytest

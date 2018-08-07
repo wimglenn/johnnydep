@@ -5,13 +5,11 @@ import errno
 import json
 import os
 import re
-import sys
 from collections import OrderedDict
 from collections import defaultdict
 from zipfile import ZipFile
 
 import anytree
-import oyaml
 import pkg_resources
 import pkginfo
 import pytoml
@@ -25,17 +23,12 @@ from wheel.install import WheelFile
 from wimpy import cached_property
 
 from johnnydep import pipper
+from johnnydep.compat import oyaml
 
 __all__ = ["JohnnyDist", "gen_table", "flatten_deps"]
 
 
 logger = get_logger(__name__)
-
-
-if sys.version_info < (3,):
-    oyaml.add_representer(
-        unicode, lambda d, s: oyaml.ScalarNode(tag="tag:yaml.org,2002:str", value=s)
-    )
 
 
 class OrderedDefaultListDict(OrderedDict):
@@ -362,5 +355,4 @@ def flatten_deps(johnnydist):
 
 # TODO: progress bar?
 # TODO: test dists to test pypi index, document pip failure modes
-# TODO: find spurious new line output in pipper - to reproduce: JohnnyDist('pyyaml')
 # TODO: don't infinitely recurse on circular dep tree

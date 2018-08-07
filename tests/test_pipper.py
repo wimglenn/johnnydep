@@ -9,7 +9,7 @@ from wimpy import working_directory
 import johnnydep.pipper
 
 
-def test_pipper(mocker, capsys, make_dist, tmpdir):
+def test_pipper_main(mocker, capsys, make_dist, tmpdir):
     make_dist(name="fakedist", version="1.2.3")
     mocker.patch("sys.argv", "pipper.py fakedist".split())
     with working_directory(tmpdir):
@@ -34,3 +34,23 @@ def test_compute_checksum(tmpdir):
     sha256 = johnnydep.pipper.compute_checksum(fname)
     assert md5 == "b581660cff17e78c84c3a84ad02e6785"
     assert sha256 == "7c788633adc75d113974372eec8c24776a581f095a747136e7ccf41b4a18b74e"
+
+
+def test_get_wheel_args():
+    fake_env = ('python_executable', 'snek'), ('pip_version', '8.8.8')
+    url = 'https://user:pass@example.org:8888/something'
+    args = johnnydep.pipper._get_wheel_args(index_url=url, env=fake_env)
+    assert args == [
+        'snek',
+        '-m',
+        'pip',
+        'wheel',
+        '-vvv',
+        '--no-deps',
+        '--no-cache-dir',
+        '--disable-pip-version-check',
+        '--index-url',
+        'https://user:pass@example.org:8888/something',
+        '--trusted-host',
+        'example.org',
+    ]

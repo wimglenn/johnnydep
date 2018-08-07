@@ -18,6 +18,7 @@ from wimpy import working_directory
 from structlog import get_logger
 
 from johnnydep.compat import urlretrieve
+from johnnydep.logs import configure_logging
 from johnnydep.util import python_interpreter
 
 log = get_logger(__name__)
@@ -110,17 +111,17 @@ def get(dist_name, index_url=None, env=None):
         raise
     log.debug("wheel command completed ok")
     out = out.decode('utf-8')
-    links = []
+    links = set()
     for line in out.splitlines():
         line = line.strip()
         if line.startswith('Downloading from URL'):
             link = line.split()[3]
-            links.append(link)
+            links.add(link)
         elif line.startswith('Source in ') and 'which satisfies requirement' in line:
             link = line.split()[-1]
-            links.append(link)
+            links.add(link)
     if len(links) != 1:
-        log.warning(out)
+        log.warning(out, links=links)
         raise Exception('Expected exactly 1 link downloaded')
     with working_directory(scratch_dir):
         [whl] = [os.path.abspath(x) for x in os.listdir('.') if x.endswith('.whl')]
@@ -144,6 +145,7 @@ def main():
     parser.add_argument("dist_name")
     parser.add_argument("--index-url", "-i")
     parser.add_argument("--for-python", "-p", dest='env', type=python_interpreter)
+    parser.add_argument("--verbose", "-v", default=0, action="count")
     debug = {
         "sys.argv": sys.argv,
         "sys.executable": sys.executable,
@@ -153,9 +155,11 @@ def main():
         "pip.__file__": pip.__file__,
     }
     args = parser.parse_args()
+    configure_logging(verbosity=args.verbose)
     log.debug('runtime info', **debug)
     result = get(dist_name=args.dist_name, index_url=args.index_url, env=args.env)
-    print(json.dumps(result, indent=2, sort_keys=True, separators=(",", ": ")))
+    text = json.dumps(result, indent=2, sort_keys=True, separators=(",", ": "))
+    print(text)
 
 
 if __name__ == "__main__":
