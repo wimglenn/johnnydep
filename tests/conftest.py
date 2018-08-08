@@ -1,64 +1,125 @@
-import glob
+# coding: utf-8
+from __future__ import unicode_literals
+
+import hashlib
 import os
-import sys
-from collections import defaultdict
+import subprocess
+from functools import partial
 
 import pytest
-import requests_mock as _requests_mock
+from setuptools import setup
+from wimpy import strip_prefix
+from wimpy import working_directory
 
-from johnnydep.pipper import compute_checksum
-
-
-@pytest.fixture(autouse=True)
-def requests_mock(mocker):
-    adapter = _requests_mock.Adapter()
-    mocker.patch('pip._vendor.requests.sessions.Session.get_adapter', return_value=adapter)
-    if sys.version_info.major == 2:
-        target = 'socket.gethostbyname'
-    else:
-        target = 'urllib.request.socket.gethostbyname'
-    mocker.patch(target, {'pypi.python.org': '151.101.44.223'}.__getitem__)
-    return adapter
+from johnnydep import pipper
 
 
 @pytest.fixture(autouse=True)
-def fakeindex(requests_mock):
-    """sets up a response for fakedist v1.2.3 with some metadata to parse, and some other distributions"""
-    index_path = os.path.join(os.path.dirname(__file__), 'fakeindex')
-    index_data = defaultdict(list)
-    for path in glob.glob(os.path.join(index_path, '*', '*')):
-        hash_ = compute_checksum(path, algorithm='md5')
-        name, fname = path.split(os.sep)[-2:]
-        index_data[name].append((fname, hash_))
-    for name, files in index_data.items():
-        links = ['<a href="./{0}#md5={1}">{0}</a><br/>'.format(*file) for file in files]
-        requests_mock.register_uri(
-            method='GET',
-            url='https://pypi.python.org/simple/{}/'.format(name),
-            headers={'Content-Type': 'text/html'},
-            text='''
-            <!DOCTYPE html><html><head><title>Links for {name}</title></head>
-            <body><h1>Links for fakedist</h1>
-            {links}
-            </body></html>'''.format(name=name, links='\n'.join(links)),
-        )
-        for fname, _hash in files:
-            path = os.path.join(index_path, name, fname)
-            with open(str(path), mode='rb') as f:
-                content = f.read()
-            requests_mock.register_uri(
-                method='GET',
-                url='https://pypi.python.org/simple/{}/{}'.format(name, fname),
-                headers={'Content-Type': 'binary/octet-stream'},
-                content=content,
-            )
-    yield
-    try:
-        os.remove('fakedist-1.2.3-py2.py3-none-any.whl')
-    except OSError:
-        pass
+def expire_caches():
+    pipper.get_versions.cache_clear()
+    pipper.get.cache_clear()
+
+
+@pytest.fixture(autouse=True)
+def disable_logconfig(mocker):
+    mocker.patch("johnnydep.logs.logging.config.dictConfig")
 
 
 @pytest.fixture(autouse=True)
 def kill_env():
-    os.environ.pop('JOHNNYDEP_FIELDS', None)
+    os.environ.pop("JOHNNYDEP_FIELDS", None)
+
+
+default_setup_kwargs = dict(
+    name="jdtest",
+    version="0.1.2",
+    author="default author",
+    author_email="default@example.org",
+    description="default text for metadata summary",
+    install_requires=[],
+    extras_require={},
+    license="MIT",
+    long_description="default long text for PyPI landing page 💩",
+    url="https://www.example.org/default",
+    platforms=["default platform"],
+    py_modules=[],
+    packages=[],
+)
+
+
+def make_wheel(capsys, mocker, scratch_dir="/tmp/jdtest", python_tag=None, callback=None, **extra):
+    kwargs = default_setup_kwargs.copy()
+    kwargs.update(extra)
+    name = kwargs["name"]
+    version = kwargs["version"]
+    fname_prefix = "-".join([name, version])
+    script_args = ["--no-user-cfg", "bdist_wheel"]
+    if python_tag is None:
+        script_args.append("--universal")
+        python_tag = "py2.py3"
+    else:
+        script_args.extend(["--python-tag", python_tag])
+    mocker.patch("sys.dont_write_bytecode", False)
+    with working_directory(scratch_dir):
+        for fname in kwargs["py_modules"]:
+            if os.path.exists(fname):
+                raise Exception("already exists: {}".format(fname))
+            with open(fname + ".py", "w"):
+                pass
+        dist = setup(script_args=script_args, **kwargs)
+    out, err = capsys.readouterr()
+    lines = out.splitlines() + err.splitlines()
+    for line in lines:
+        if "warning" in line.lower():
+            raise Exception("setup warning: {}".format(line))
+    dist_dir = os.path.join(scratch_dir, "dist")
+    dist_files = [f for f in os.listdir(dist_dir) if fname_prefix in f]
+    [dist_fname] = [f for f in dist_files if "-" + python_tag + "-" in f]
+    dist_path = os.path.join(dist_dir, dist_fname)
+    with open(dist_path, mode="rb") as f:
+        md5 = hashlib.md5(f.read()).hexdigest()
+    if callback is not None:
+        # contribute to test index
+        callback(name=name, path=dist_path, urlfragment="#md5="+md5)
+    return dist, dist_path, md5
+
+
+@pytest.fixture()
+def add_to_index():
+    index_data = {}
+
+    def add_package(name, path, urlfragment=""):
+        index_data[path] = (name, urlfragment)
+
+    add_package.index_data = index_data
+    yield add_package
+
+
+@pytest.fixture()
+def make_dist(tmpdir, add_to_index, capsys, mocker):
+    return partial(make_wheel, capsys=capsys, mocker=mocker, scratch_dir=str(tmpdir), callback=add_to_index)
+
+
+@pytest.fixture(autouse=True)
+def fake_subprocess(mocker, add_to_index):
+
+    index_data = add_to_index.index_data
+    subprocess_check_output = subprocess.check_output
+
+    def wheel_proc(args, stderr, cwd=None):
+        exe = args[0]
+        req = args[-1]
+        links = ["--find-links={}".format(p) for p in index_data]
+        args = [exe, "-m", "pip", "wheel", "-vvv", "--no-index", "--no-deps", "--no-cache-dir", "--disable-pip-version-check", "--progress-bar=off"] + links + [req]
+        output = subprocess_check_output(args, stderr=stderr, cwd=cwd)
+        lines = output.decode().splitlines()
+        for line in lines:
+            line = line.strip()
+            if line.startswith("Saved ./"):
+                fname = strip_prefix(line, "Saved ./")
+                inject = "\n  Downloading from URL http://fakeindex/{}\n".format(fname)
+                output += inject.encode()
+                break
+        return output
+
+    mocker.patch("johnnydep.pipper.subprocess.check_output", wheel_proc)

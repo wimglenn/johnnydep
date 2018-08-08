@@ -1,197 +1,422 @@
+# coding: utf-8
+from __future__ import unicode_literals
+
+import hashlib
 import sys
+from subprocess import CalledProcessError
+from textwrap import dedent
 
 import pytest
-from pip.exceptions import DistributionNotFound
-from testfixtures import ShouldRaise
 
 from johnnydep.lib import JohnnyDist
 from johnnydep.lib import flatten_deps
 
 
-def test_version_nonexisting():
+def test_version_nonexisting(make_dist):
     # v0.404 does not exist in index
-    with ShouldRaise(DistributionNotFound('No matching distribution found for wheel==0.404')):
-        JohnnyDist('wheel==0.404')
+    make_dist()
+    with pytest.raises(CalledProcessError) as cm:
+        JohnnyDist("jdtest==0.404")
+    msg = "DistributionNotFound: No matching distribution found for jdtest==0.404\n"
+    assert cm.value.output.decode().endswith(msg)
 
 
-def test_version_conflict():
-    # wheel v0.30.0 is already installed, but v0.29.0 does exist in index
-    dist = JohnnyDist('wheel<0.30.0')
-    assert dist.version_installed == '0.30.0'
-    assert dist.version_latest == '0.30.0'
-    assert dist.versions_available == ['0.29.0', '0.30.0']
-    assert dist.version_latest_in_spec == '0.29.0'
+def test_import_names_empty(make_dist):
+    make_dist()
+    jdist = JohnnyDist("jdtest")
+    assert jdist.import_names == []
 
 
-def test_build_from_sdist():
-    dist = JohnnyDist('copyingmock')
-    assert dist.name == 'copyingmock'
-    assert dist.summary == 'A subclass of MagicMock that copies the arguments'
-    assert dist.required_by == []
-    assert dist.import_names == ['copyingmock']
-    assert dist.homepage == 'https://github.com/wimglenn/copyingmock'
-    assert dist.extras_available == []
-    assert dist.extras_requested == []
-    assert dist.project_name == 'copyingmock'
-    assert dist.download_link == 'https://pypi.python.org/simple/copyingmock/copyingmock-0.2.tar.gz'
-    assert dist.checksum == 'md5=9aa6ba13542d25e527fe358d53cdaf3b'
+def test_import_names_nonempty(make_dist):
+    make_dist(py_modules=["mod1", "mod2"])
+    jdist = JohnnyDist("jdtest")
+    assert jdist.import_names == ["mod1", "mod2"]
 
 
-@pytest.mark.skipif(condition=sys.version_info < (3, 3), reason='This test is for Python >= 3.3 only')
-def test_conditional_deps_python3():
-    dist = JohnnyDist('copyingmock')
-    assert dist.requires == []
+def test_version_installed(make_dist):
+    make_dist(name="wimpy", version="0.3")
+    jdist = JohnnyDist("wimpy")
+    assert jdist.version_installed == "0.3"
 
 
-@pytest.mark.skipif(condition=sys.version_info >= (3, 3), reason='This test is for Python < 3.3 only')
-def test_conditional_deps_python2():
-    dist = JohnnyDist('copyingmock')
-    assert dist.requires == ['mock']
+def test_version_not_installed(make_dist):
+    make_dist()
+    jdist = JohnnyDist("jdtest")
+    assert jdist.version_installed is None
 
 
-def test_serialiser():
-    dist = JohnnyDist('wheel')
-    assert dist.serialise(format=None) == [{'name': 'wheel', 'summary': 'A built-package format for Python.'}]
-    assert dist.serialise(format='toml') == 'name = "wheel"\nsummary = "A built-package format for Python."\n'
-    assert dist.serialise(format='yaml') == '- {name: wheel, summary: A built-package format for Python.}\n'
-    with ShouldRaise(Exception('Unsupported format')):
-        dist.serialise(format='bogus')
+def test_version_latest(make_dist):
+    make_dist(version="1.2.3")
+    make_dist(version="1.3.2")
+    jdist = JohnnyDist("jdtest")
+    assert jdist.version_latest == "1.3.2"
 
 
-def test_flatten_dist_with_nodeps():
-    dist = JohnnyDist('fakedist')
-    reqs = list(flatten_deps(dist))
-    assert reqs == [dist]
+def test_version_latest_in_spec(make_dist):
+    make_dist(version="1.2.3")
+    make_dist(version="2.3.4")
+    make_dist(version="3.4.5")
+    jdist = JohnnyDist("jdtest<3")
+    assert jdist.version_latest_in_spec == "2.3.4"
 
 
-def test_flatten_dist_with_deps():
-    dist = JohnnyDist('fakedist[dev]')
-    reqs = list(flatten_deps(dist))
+def test_version_latest_in_spec_prerelease_not_chosen(make_dist):
+    make_dist(version="0.1")
+    make_dist(version="0.2a0")
+    jdist = JohnnyDist("jdtest")
+    assert jdist.version_latest_in_spec == "0.1"
+
+
+def test_version_latest_in_spec_prerelease_chosen(make_dist):
+    make_dist(name="alphaonly", version="0.2a0")
+    jdist = JohnnyDist("alphaonly")
+    assert jdist.version_latest_in_spec == "0.2a0"
+
+
+def test_version_latest_in_spec_prerelease_out_of_spec(make_dist):
+    make_dist(version="0.1")
+    make_dist(version="0.2a0")
+    with pytest.raises(CalledProcessError) as cm:
+        JohnnyDist("jdtest>0.1")
+    msg = "DistributionNotFound: No matching distribution found for jdtest>0.1\n"
+    assert cm.value.output.decode().endswith(msg)
+
+
+def test_version_pinned_to_latest_in_spec(make_dist):
+    make_dist(version="1.2.3")
+    make_dist(version="2.3.4")
+    make_dist(version="3.4.5")
+    jdist = JohnnyDist("jdtest<3")
+    assert jdist.pinned == "jdtest==2.3.4"
+
+
+def test_version_pin_includes_extras(make_dist):
+    make_dist(version="1.2.3")
+    make_dist(version="2.3.4")
+    make_dist(version="3.4.5")
+    jdist = JohnnyDist("jdtest[a,b]<3")
+    assert jdist.pinned == "jdtest[a,b]==2.3.4"
+
+
+def test_version_in_spec_not_avail(make_dist):
+    make_dist(version="1.2.3")
+    make_dist(version="2.3.4")
+    make_dist(version="3.4.5")
+    with pytest.raises(CalledProcessError) as cm:
+        JohnnyDist("jdtest>4")
+    msg = "DistributionNotFound: No matching distribution found for jdtest>4\n"
+    assert cm.value.output.decode().endswith(msg)
+
+
+def test_project_name_different_from_canonical_name(make_dist):
+    make_dist(name="PyYAML")
+    jdist = JohnnyDist("pyyaml")
+    assert jdist.name == "pyyaml"
+    assert jdist.project_name == "PyYAML"
+
+
+def test_homepage(make_dist):
+    make_dist()
+    jdist = JohnnyDist("jdtest")
+    assert jdist.homepage == "https://www.example.org/default"
+
+
+def test_no_homepage(make_dist):
+    make_dist(url="")
+    jdist = JohnnyDist("jdtest")
+    assert jdist.homepage is None
+
+
+def test_dist_no_children(make_dist):
+    make_dist()
+    jdist = JohnnyDist("jdtest")
+    assert jdist.children == ()
+
+
+def test_download_link(make_dist):
+    make_dist()
+    jdist = JohnnyDist("jdtest")
+    # this link is coming from a faked package index set up in conftest.py
+    assert jdist.download_link == "http://fakeindex/jdtest-0.1.2-py2.py3-none-any.whl"
+
+
+def test_checksum_md5(make_dist):
+    # the actual checksum value is not repeatable because of timestamps, file modes etc
+    make_dist()
+    jdist = JohnnyDist("jdtest")
+    hashtype, sep, hashval = jdist.checksum.partition("=")
+    assert hashtype == "md5"
+    assert sep == "="
+    assert len(hashval) == 32
+    assert set(hashval) <= set("1234567890abcdef")
+    with open(jdist.dist_path, mode="rb") as f:
+        expected = hashlib.md5(f.read()).hexdigest()
+    assert hashval == expected
+
+
+def test_extras_available_none(make_dist):
+    make_dist()
+    jdist = JohnnyDist("jdtest")
+    assert jdist.extras_available == []
+
+
+def test_extras_available(make_dist):
+    make_dist(extras_require={"xy": ["blah"], "abc": ["spam", "eggs"]})
+    jdist = JohnnyDist("jdtest")
+    assert jdist.extras_available == ["abc", "xy"]
+
+
+def test_extras_requested_none(make_dist):
+    make_dist()
+    jdist = JohnnyDist("jdtest")
+    assert jdist.extras_requested == []
+
+
+def test_extras_requested_sorted(make_dist):
+    make_dist()
+    jdist = JohnnyDist("jdtest[spam,eggs]")
+    assert jdist.extras_requested == ["eggs", "spam"]
+
+
+def test_summary(make_dist):
+    make_dist()
+    jdist = JohnnyDist("jdtest")
+    assert jdist.summary == "default text for metadata summary"
+
+
+def test_versions_available(make_dist):
+    make_dist(version="0.1")
+    make_dist(version="1.0.0")
+    jdist = JohnnyDist("jdtest")
+    assert jdist.versions_available == ["0.1", "1.0.0"]
+
+
+def test_requires(make_dist):
+    make_dist(name="parent", install_requires=["child1", "child3[extra]", "child2<0.5"])
+    make_dist(name="child1")
+    make_dist(name="child2")
+    make_dist(name="child3")
+    jdist = JohnnyDist("parent")
+    assert jdist.requires == ["child1", "child2<0.5", "child3[extra]"]
+
+
+def test_conditional_dependency_included_by_environment_marker(make_dist):
+    make_dist(name="parent", install_requires=["child1", "child2; python_version>='1.0'"])
+    make_dist(name="child1")
+    make_dist(name="child2")
+    jdist = JohnnyDist("parent")
+    assert jdist.requires == ["child1", "child2"]
+
+
+def test_conditional_dependency_excluded_by_environment_marker(make_dist):
+    make_dist(name="parent", install_requires=["child1", "child2; python_version<'1.0'"])
+    make_dist(name="child1")
+    make_dist(name="child2")
+    jdist = JohnnyDist("parent")
+    assert jdist.requires == ["child1"]
+
+
+def test_conditional_dependency_included_by_environment_marker_old(make_dist):
+    make_dist(
+        name="parent",
+        install_requires=["child1"],
+        extras_require={":python_version>='1.0'": ["child2"]},
+    )
+    make_dist(name="child1")
+    make_dist(name="child2")
+    jdist = JohnnyDist("parent")
+    assert jdist.requires == ["child1", "child2"]
+
+
+def test_conditional_dependency_excluded_by_environment_marker_old(make_dist):
+    make_dist(
+        name="parent",
+        install_requires=["child1"],
+        extras_require={":python_version<'1.0'": ["child2"]},
+    )
+    make_dist(name="child1")
+    make_dist(name="child2")
+    jdist = JohnnyDist("parent")
+    assert jdist.requires == ["child1"]
+
+
+def test_conditional_dependency_included_by_extra(make_dist):
+    make_dist(name="parent", install_requires=["child1"], extras_require={"x": "child2"})
+    make_dist(name="child1")
+    make_dist(name="child2")
+    jdist = JohnnyDist("parent[x]")
+    assert jdist.requires == ["child1", "child2"]
+
+
+def test_conditional_dependency_excluded_by_extra(make_dist):
+    make_dist(name="parent", install_requires=["child1"], extras_require={"x": "child2"})
+    make_dist(name="child1")
+    make_dist(name="child2")
+    jdist = JohnnyDist("parent")
+    assert jdist.requires == ["child1"]
+
+
+def test_conditional_dependency_included_by_extra_but_excluded_by_environment_marker(make_dist):
+    make_dist(name="parent", extras_require={"x": 'child; python_version<"1.0"'})
+    make_dist(name="child")
+    jdist = JohnnyDist("parent[x]")
+    assert jdist.requires == []
+
+
+def test_children(make_dist):
+    make_dist(name="parent", install_requires=["child"])
+    make_dist(name="child")
+    jdist = JohnnyDist("parent")
+    [child] = jdist.children
+    assert isinstance(child, JohnnyDist)
+    assert isinstance(jdist.children, tuple)
+    assert child.name == "child"
+
+
+def test_serialiser_python(make_dist):
+    make_dist()
+    jdist = JohnnyDist("jdtest")
+    assert jdist.serialise() == [{"name": "jdtest", "summary": "default text for metadata summary"}]
+
+
+def test_serialiser_json(make_dist):
+    make_dist()
+    jdist = JohnnyDist("jdtest")
+    assert jdist.serialise(format="json") == dedent(
+        """\
+        [
+          {
+            "name": "jdtest",
+            "summary": "default text for metadata summary"
+          }
+        ]"""
+    )
+
+
+def test_serialiser_toml(make_dist):
+    make_dist()
+    jdist = JohnnyDist("jdtest")
+    assert jdist.serialise(format="toml") == dedent(
+        """\
+        name = "jdtest"
+        summary = "default text for metadata summary"
+        """
+    )
+
+
+def test_serialiser_yaml(make_dist):
+    make_dist()
+    jdist = JohnnyDist("jdtest")
+    assert (
+        jdist.serialise(format="yaml")
+        == "- {name: jdtest, summary: default text for metadata summary}\n"
+    )
+
+
+def test_serialiser_pinned(make_dist):
+    make_dist()
+    jdist = JohnnyDist("jdtest[a]")
+    assert jdist.serialise(format="pinned") == "jdtest[a]==0.1.2"
+
+
+def test_serialiser_unsupported(make_dist):
+    make_dist()
+    jdist = JohnnyDist("jdtest")
+    with pytest.raises(Exception) as cm:
+        jdist.serialise(format="bogus")
+    assert cm.value.args == ("Unsupported format",)
+
+
+def test_serialiser_with_children(make_dist):
+    make_dist(name="a", install_requires=["b"])
+    make_dist(name="b", version="2.0")
+    jdist = JohnnyDist("A")
+    assert jdist.serialise(format="pinned", recurse=True) == "a==0.1.2\nb==2.0"
+
+
+def test_serialiser_with_children_no_recurse(make_dist):
+    make_dist(name="a", install_requires=["b"])
+    make_dist(name="b", version="2.0")
+    jdist = JohnnyDist("A")
+    assert jdist.serialise(format="pinned", recurse=False) == "a==0.1.2"
+
+
+def test_serialiser_custom_fields(make_dist):
+    make_dist(version="0.1")
+    make_dist(version="0.2")
+    jdist = JohnnyDist("jdtest")
+    assert jdist.serialise(fields=("versions_available", "version_latest")) == [
+        {"versions_available": ["0.1", "0.2"], "version_latest": "0.2"}
+    ]
+
+
+def test_flatten_dist_with_nodeps(make_dist):
+    make_dist()
+    jdist = JohnnyDist("jdtest")
+    reqs = list(flatten_deps(jdist))
+    assert reqs == [jdist]
+
+
+def test_flatten_dist_with_deps(make_dist):
+    make_dist(name="root", install_requires=["dep"])
+    make_dist(name="dep")
+    jdist = JohnnyDist("root")
+    reqs = list(flatten_deps(jdist))
     [dist0, dist1] = reqs
-    assert dist0.name == 'fakedist'
-    assert dist0 is dist
-    assert str(dist1.req) == 'wheel>=0.30.0'
+    assert dist0 is jdist
+    assert dist1.name == "dep"
 
 
-def test_serialiser_with_deps():
-    dist = JohnnyDist('fakedist[dev]')
-    assert dist.serialise(fields=['name']) == [
-        {'name': 'fakedist'},
-        {'name': 'wheel'},
-    ]
+def test_diamond_dependency_resolution(make_dist):
+    make_dist(name="dist1", install_requires=["dist2a", "dist2b"])
+    make_dist(name="dist2a", install_requires=["dist3[y]>0.2"])
+    make_dist(name="dist2b", install_requires=["dist3[x,z]<0.4"])
+    make_dist(name="dist3", version="0.2")
+    make_dist(name="dist3", version="0.3")
+    make_dist(name="dist3", version="0.4")
+    jdist = JohnnyDist("dist1")
+    dist1, dist2a, dist2b, dist3 = flatten_deps(jdist)
+
+    assert dist1 is jdist
+    assert dist1.requires == ["dist2a", "dist2b"]
+    assert dist1.required_by == []
+
+    assert dist2a.name == "dist2a"
+    assert dist2a.requires == ["dist3[y]>0.2"]
+    assert dist2a.required_by == ["dist1"]
+
+    assert dist2b.name == "dist2b"
+    assert dist2b.requires == ["dist3[x,z]<0.4"]
+    assert dist2b.required_by == ["dist1"]
+
+    assert dist3.name == "dist3"
+    assert dist3.required_by == ["dist2a", "dist2b"]
+    assert dist3.extras_requested == ["x", "y", "z"]  # merged
+    assert dist3.versions_available == ["0.2", "0.3", "0.4"]
+    assert dist3.version_latest == "0.4"
+    assert dist3.version_latest_in_spec == "0.3"
+    assert str(dist3.req.specifier) == "<0.4,>0.2"
 
 
-def test_children():
-    dist = JohnnyDist('fakedist[dev]')
-    assert len(dist.children) == 1
-    [child] = dist.children
-    assert child.project_name == 'wheel'
-
-
-def test_non_json_metadata():
-    # this dist uses old-skool metadata format (plaintext not json)
-    dist = JohnnyDist('testpath==0.3.1')
-    assert dist.serialise(fields=['name', 'summary', 'import_names']) == [{
-        'name': 'testpath',
-        'summary': 'Test utilities for code working with files and commands',
-        'import_names': ['testpath'],
-    }]
-
-
-def test_diamond_dependency_tree():
-    dist = JohnnyDist('distA')
-    fields = [
-        'name', 'summary', 'specifier', 'requires', 'required_by', 'import_names', 'homepage',
-        'extras_available', 'extras_requested', 'project_name', 'versions_available', 'version_installed',
-        'version_latest', 'version_latest_in_spec', 'download_link', 'checksum',
-    ]
-    data = dist.serialise(fields=fields)
-    data = [dict(x) for x in data]
+def test_resolve_unresolvable(make_dist):
+    make_dist(name="dist1", description="unresolvable", install_requires=["dist2<=0.1", "dist2>0.2"])
+    make_dist(name="dist2", version="0.1")
+    make_dist(name="dist2", version="0.3")
+    dist = JohnnyDist("dist1")
+    data = dist.serialise(recurse=False, fields=["project_name", "summary", "requires"])
     assert data == [
-        {
-            'checksum': 'md5=c422ba4693b32da3c0721d425aff4eed',
-            'download_link': 'https://pypi.python.org/simple/dista/distA-0.1-py2.py3-none-any.whl',
-            'extras_available': [],
-            'extras_requested': [],
-            'homepage': None,
-            'import_names': [],
-            'name': 'dista',
-            'project_name': 'distA',
-            'required_by': [],
-            'requires': ['distB1', 'distB2'],
-            'specifier': '',
-            'summary': 'Top of a diamond dependency tree',
-            'version_installed': None,
-            'version_latest': '0.1',
-            'version_latest_in_spec': '0.1',
-            'versions_available': ['0.1'],
-        },
-        {
-            'checksum': 'md5=a96f048902789a3faf8e8e829a27a5ec',
-            'download_link': 'https://pypi.python.org/simple/distb1/distB1-0.1-py2.py3-none-any.whl',
-            'extras_available': [],
-            'extras_requested': [],
-            'homepage': None,
-            'import_names': [],
-            'name': 'distb1',
-            'project_name': 'distB1',
-            'required_by': ['distA'],
-            'requires': ['distC[x,z] (<0.3)'],
-            'specifier': '',
-            'summary': 'Left edge of a diamond dependency tree',
-            'version_installed': None,
-            'version_latest': '0.1',
-            'version_latest_in_spec': '0.1',
-            'versions_available': ['0.1'],
-        },
-        {
-            'checksum': 'md5=bc5761d4232c8e4a95dc0125605f5f65',
-            'download_link': 'https://pypi.python.org/simple/distb2/distB2-0.1-py2.py3-none-any.whl',
-            'extras_available': [],
-            'extras_requested': [],
-            'homepage': None,
-            'import_names': [],
-            'name': 'distb2',
-            'project_name': 'distB2',
-            'required_by': ['distA'],
-            'requires': ['distC[y] (!=0.2)'],
-            'specifier': '',
-            'summary': 'Right edge of a diamond dependency tree',
-            'version_installed': None,
-            'version_latest': '0.1',
-            'version_latest_in_spec': '0.1',
-            'versions_available': ['0.1'],
-        },
-        {
-            'checksum': 'md5=e3404449fa48c97b384b6b64c52f5ce2',
-            'download_link': 'https://pypi.python.org/simple/distc/distC-0.1-py2.py3-none-any.whl',
-            'extras_available': ['X', 'Y', 'Z'],
-            'extras_requested': ['x', 'y', 'z'],  # Note: extras got merged
-            'homepage': None,
-            'import_names': [],
-            'name': 'distc',
-            'project_name': 'distC',
-            'required_by': ['distB1', 'distB2'],
-            'requires': [],
-            'specifier': '!=0.2,<0.3',  # Note: specifiers got merged
-            'summary': 'Bottom of a diamond dependency tree',
-            'version_installed': None,
-            'version_latest': '0.3',
-            'version_latest_in_spec': '0.1',  # Even though this was not "best" for either dep
-            'versions_available': ['0.1', '0.2', '0.3'],
-        },
+        {"project_name": "dist1", "summary": "unresolvable", "requires": ["dist2<=0.1", "dist2>0.2"]}
     ]
-
-
-def test_resolve_unresolvable():
-    dist = JohnnyDist('distX')
-    data = dist.serialise(recurse=False, fields=['project_name', 'summary', 'requires'])
-    assert data == [{
-        'project_name': 'distX',
-        'summary': 'Dist with unresolvable dependencies',
-        'requires': ['distC (<=0.1)', 'distC (>0.2)'],  # this installation requirement can not be resolved
-    }]
     gen = flatten_deps(dist)
     assert next(gen) is dist
-    with ShouldRaise(DistributionNotFound('No matching distribution found for distc<=0.1,>0.2')):
+    with pytest.raises(CalledProcessError) as cm:
         next(gen)
+    msg = "DistributionNotFound: No matching distribution found for dist2<=0.1,>0.2\n"
+    assert cm.value.output.decode().endswith(msg)
+
+
+def test_env_data_converted_to_dict(make_dist):
+    make_dist()
+    env_data = ("pip_version", "18.0"), ("python_executable", sys.executable)
+    jdist = JohnnyDist("jdtest", env=env_data)
+    assert jdist.env_data == {"pip_version": "18.0", "python_executable": sys.executable}
