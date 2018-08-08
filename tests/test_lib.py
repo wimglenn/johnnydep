@@ -2,6 +2,7 @@
 from __future__ import unicode_literals
 
 import hashlib
+import sys
 from subprocess import CalledProcessError
 from textwrap import dedent
 
@@ -67,7 +68,7 @@ def test_version_latest_in_spec_prerelease_not_chosen(make_dist):
 
 
 def test_version_latest_in_spec_prerelease_chosen(make_dist):
-    make_dist(name='alphaonly', version="0.2a0")
+    make_dist(name="alphaonly", version="0.2a0")
     jdist = JohnnyDist("alphaonly")
     assert jdist.version_latest_in_spec == "0.2a0"
 
@@ -121,7 +122,7 @@ def test_homepage(make_dist):
 
 
 def test_no_homepage(make_dist):
-    make_dist(url='')
+    make_dist(url="")
     jdist = JohnnyDist("jdtest")
     assert jdist.homepage is None
 
@@ -412,3 +413,10 @@ def test_resolve_unresolvable(make_dist):
         next(gen)
     msg = "DistributionNotFound: No matching distribution found for dist2<=0.1,>0.2\n"
     assert cm.value.output.decode().endswith(msg)
+
+
+def test_env_data_converted_to_dict(make_dist):
+    make_dist()
+    env_data = ("pip_version", "18.0"), ("python_executable", sys.executable)
+    jdist = JohnnyDist("jdtest", env=env_data)
+    assert jdist.env_data == {"pip_version": "18.0", "python_executable": sys.executable}

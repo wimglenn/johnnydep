@@ -51,8 +51,8 @@ def main():
     parser.add_argument(
         "--fields", "-f", nargs="*", default=default_fields, choices=list(FIELDS) + ["ALL"]
     )
-    parser.add_argument("--for-python", "-p", dest='env', type=python_interpreter)
-    parser.add_argument("--verbose", "-v", default=0, action="count")
+    parser.add_argument("--for-python", "-p", dest="env", type=python_interpreter)
+    parser.add_argument("--verbose", "-v", default=1, type=int, choices=range(3))
     args = parser.parse_args()
     if "ALL" in args.fields:
         args.fields = list(FIELDS)

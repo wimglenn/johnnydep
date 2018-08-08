@@ -5,21 +5,21 @@ import sys
 
 
 def format_full_version(info):
-    version = '{0.major}.{0.minor}.{0.micro}'.format(info)
+    version = "{0.major}.{0.minor}.{0.micro}".format(info)
     kind = info.releaselevel
-    if kind != 'final':
+    if kind != "final":
         version += kind[0] + str(info.serial)
     return version
 
 
 # cribbed from packaging.markers to avoid a runtime dependency here
 def default_environment():
-    if hasattr(sys, 'implementation'):
+    if hasattr(sys, "implementation"):
         iver = format_full_version(sys.implementation.version)
         implementation_name = sys.implementation.name
     else:
-        iver = '0'
-        implementation_name = ''
+        iver = "0"
+        implementation_name = ""
 
     return {
         "implementation_name": implementation_name,
@@ -58,11 +58,11 @@ def main():
     else:
         setuptools_version = setuptools.__version__
     env = default_environment()
-    env['python_executable'] = sys.executable
-    env['pip_version'] = pip.__version__
-    env['wheel_version'] = wheel.__version__
-    env['packaging_version'] = packaging_version
-    env['setuptools_version'] = setuptools_version
+    env["python_executable"] = sys.executable
+    env["pip_version"] = pip.__version__
+    env["wheel_version"] = wheel.__version__
+    env["packaging_version"] = packaging_version
+    env["setuptools_version"] = setuptools_version
     env = sorted(env.items())
     result = json.dumps(env, indent=2)
     print(result)

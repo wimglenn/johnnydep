@@ -152,7 +152,7 @@ class JohnnyDist(anytree.NodeMixin):
                 continue
             assert extras
             assert set(extras) <= set(self.extras_requested)
-            assert 'extra' not in env
+            assert "extra" not in env
             if not req.marker or any(req.marker.evaluate(dict(extra=e, **env)) for e in extras):
                 self.log.debug("included requested extra", req=req_str)
                 result.append(req_short)
@@ -334,14 +334,14 @@ def flatten_deps(johnnydist):
         for dist in dists:
             if dist.version_latest_in_spec in spec and set(dist.extras_requested) >= extras:
                 dist.required_by = required_by
-                johnnydist.log.debug("resolved", name=dist.name, required_by=required_by)
+                johnnydist.log.info("resolved", name=dist.name, required_by=required_by)
                 yield dist
                 break
         else:
             nameset = {dist.name for dist in dists}
             assert len(nameset) == 1  # name attributes were canonicalized by JohnnyDist.__init__
             [name] = nameset
-            johnnydist.log.debug("merged specs", name=name, spec=spec, extras=extras)
+            johnnydist.log.info("merged specs", name=name, spec=spec, extras=extras)
             req_string = "{name}{extras}{spec}".format(
                 name=name,
                 extras="[{}]".format(",".join(sorted(extras))) if extras else "",

@@ -9,17 +9,17 @@ from johnnydep.util import python_interpreter
 
 
 def test_bad_python_interpreter_triggers_argparse_error(mocker):
-    mocker.patch('johnnydep.util.check_output', side_effect=CalledProcessError(1, 'boom'))
+    mocker.patch("johnnydep.util.check_output", side_effect=CalledProcessError(1, "boom"))
     with pytest.raises(ArgumentTypeError) as cm:
-        python_interpreter('whatever')
-    assert str(cm.value) == 'Invalid python env call'
+        python_interpreter("whatever")
+    assert str(cm.value) == "Invalid python env call"
 
 
 def test_bad_python_interpreter_output_triggers_argparse_error(mocker):
-    mocker.patch('johnnydep.util.check_output', return_value=b'wtf')
+    mocker.patch("johnnydep.util.check_output", return_value=b"wtf")
     with pytest.raises(ArgumentTypeError) as cm:
-        python_interpreter('whatever')
-    assert str(cm.value) == 'Invalid python env output'
+        python_interpreter("whatever")
+    assert str(cm.value) == "Invalid python env output"
 
 
 def test_good_python_env():
@@ -29,20 +29,20 @@ def test_good_python_env():
     for value in data.values():
         assert isinstance(value, text_type)
     assert sorted(data) == [
-        'implementation_name',
-        'implementation_version',
-        'os_name',
-        'packaging_version',
-        'pip_version',
-        'platform_machine',
-        'platform_python_implementation',
-        'platform_release',
-        'platform_system',
-        'platform_version',
-        'python_executable',
-        'python_full_version',
-        'python_version',
-        'setuptools_version',
-        'sys_platform',
-        'wheel_version',
+        "implementation_name",
+        "implementation_version",
+        "os_name",
+        "packaging_version",
+        "pip_version",
+        "platform_machine",
+        "platform_python_implementation",
+        "platform_release",
+        "platform_system",
+        "platform_version",
+        "python_executable",
+        "python_full_version",
+        "python_version",
+        "setuptools_version",
+        "sys_platform",
+        "wheel_version",
     ]

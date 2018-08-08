@@ -37,20 +37,20 @@ def test_compute_checksum(tmpdir):
 
 
 def test_get_wheel_args():
-    fake_env = ('python_executable', 'snek'), ('pip_version', '8.8.8')
-    url = 'https://user:pass@example.org:8888/something'
+    fake_env = ("python_executable", "snek"), ("pip_version", "8.8.8")
+    url = "https://user:pass@example.org:8888/something"
     args = johnnydep.pipper._get_wheel_args(index_url=url, env=fake_env)
     assert args == [
-        'snek',
-        '-m',
-        'pip',
-        'wheel',
-        '-vvv',
-        '--no-deps',
-        '--no-cache-dir',
-        '--disable-pip-version-check',
-        '--index-url',
-        'https://user:pass@example.org:8888/something',
-        '--trusted-host',
-        'example.org',
+        "snek",
+        "-m",
+        "pip",
+        "wheel",
+        "-vvv",
+        "--no-deps",
+        "--no-cache-dir",
+        "--disable-pip-version-check",
+        "--index-url",
+        "https://user:pass@example.org:8888/something",
+        "--trusted-host",
+        "example.org",
     ]

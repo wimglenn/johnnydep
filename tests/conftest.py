@@ -21,6 +21,11 @@ def expire_caches():
 
 
 @pytest.fixture(autouse=True)
+def disable_logconfig(mocker):
+    mocker.patch("johnnydep.logs.logging.config.dictConfig")
+
+
+@pytest.fixture(autouse=True)
 def kill_env():
     os.environ.pop("JOHNNYDEP_FIELDS", None)
 
@@ -54,7 +59,7 @@ def make_wheel(capsys, mocker, scratch_dir="/tmp/jdtest", python_tag=None, callb
         python_tag = "py2.py3"
     else:
         script_args.extend(["--python-tag", python_tag])
-    mocker.patch('sys.dont_write_bytecode', False)
+    mocker.patch("sys.dont_write_bytecode", False)
     with working_directory(scratch_dir):
         for fname in kwargs["py_modules"]:
             if os.path.exists(fname):
@@ -75,7 +80,7 @@ def make_wheel(capsys, mocker, scratch_dir="/tmp/jdtest", python_tag=None, callb
         md5 = hashlib.md5(f.read()).hexdigest()
     if callback is not None:
         # contribute to test index
-        callback(name=name, path=dist_path, urlfragment='#md5='+md5)
+        callback(name=name, path=dist_path, urlfragment="#md5="+md5)
     return dist, dist_path, md5
 
 
@@ -83,7 +88,7 @@ def make_wheel(capsys, mocker, scratch_dir="/tmp/jdtest", python_tag=None, callb
 def add_to_index():
     index_data = {}
 
-    def add_package(name, path, urlfragment=''):
+    def add_package(name, path, urlfragment=""):
         index_data[path] = (name, urlfragment)
 
     add_package.index_data = index_data
@@ -104,17 +109,17 @@ def fake_subprocess(mocker, add_to_index):
     def wheel_proc(args, stderr, cwd=None):
         exe = args[0]
         req = args[-1]
-        links = ['--find-links={}'.format(p) for p in index_data]
-        args = [exe, '-m', 'pip', 'wheel', '-vvv', '--no-index', '--no-deps', '--no-cache-dir', '--disable-pip-version-check', '--progress-bar=off'] + links + [req]
+        links = ["--find-links={}".format(p) for p in index_data]
+        args = [exe, "-m", "pip", "wheel", "-vvv", "--no-index", "--no-deps", "--no-cache-dir", "--disable-pip-version-check", "--progress-bar=off"] + links + [req]
         output = subprocess_check_output(args, stderr=stderr, cwd=cwd)
         lines = output.decode().splitlines()
         for line in lines:
             line = line.strip()
-            if line.startswith('Saved ./'):
-                fname = strip_prefix(line, 'Saved ./')
-                inject = '\n  Downloading from URL http://fakeindex/{}\n'.format(fname)
+            if line.startswith("Saved ./"):
+                fname = strip_prefix(line, "Saved ./")
+                inject = "\n  Downloading from URL http://fakeindex/{}\n".format(fname)
                 output += inject.encode()
                 break
         return output
 
-    mocker.patch('johnnydep.pipper.subprocess.check_output', wheel_proc)
+    mocker.patch("johnnydep.pipper.subprocess.check_output", wheel_proc)

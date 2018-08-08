@@ -30,7 +30,7 @@ DEFAULT_INDEX = "https://pypi.org/simple/"
 def compute_checksum(target, algorithm="sha256", blocksize=2 ** 13):
     hashtype = getattr(hashlib, algorithm)
     hash_ = hashtype()
-    log.info("computing checksum", target=target, algorithm=algorithm)
+    log.debug("computing checksum", target=target, algorithm=algorithm)
     with open(target, "rb") as f:
         for chunk in iter(lambda: f.read(blocksize), b""):
             hash_.update(chunk)
@@ -40,35 +40,35 @@ def compute_checksum(target, algorithm="sha256", blocksize=2 ** 13):
 
 
 def _get_hostname(url):
-    left, sep, right = url.partition('://')
+    left, sep, right = url.partition("://")
     host = right if sep else left
-    left, sep, right = host.partition('@')
+    left, sep, right = host.partition("@")
     host = right if sep else left
-    host, _sep, _path = host.partition('/')
-    host, _sep, _port = host.partition(':')
+    host, _sep, _path = host.partition("/")
+    host, _sep, _port = host.partition(":")
     return host
 
 
 def _get_wheel_args(index_url, env):
     args = [
             sys.executable,
-            '-m',
-            'pip',
-            'wheel',
-            '-vvv',  # --verbose x3
-            '--no-deps',
-            '--no-cache-dir',
-            '--disable-pip-version-check',
+            "-m",
+            "pip",
+            "wheel",
+            "-vvv",  # --verbose x3
+            "--no-deps",
+            "--no-cache-dir",
+            "--disable-pip-version-check",
     ]
     if index_url is not None and index_url != DEFAULT_INDEX:
         args += ["--index-url", index_url, "--trusted-host", _get_hostname(index_url)]
     if env is None:
         pip_version = pip.__version__
     else:
-        pip_version = dict(env)['pip_version']
-        args[0] = dict(env)['python_executable']
-    if int(pip_version.split('.')[0]) >= 10:
-        args.append('--progress-bar=off')
+        pip_version = dict(env)["pip_version"]
+        args[0] = dict(env)["python_executable"]
+    if int(pip_version.split(".")[0]) >= 10:
+        args.append("--progress-bar=off")
     return args
 
 
@@ -81,20 +81,20 @@ def get_versions(dist_name, index_url=None, env=None):
         out = subprocess.check_output(args, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as err:
         # expected. we forced this by using a non-existing version number.
-        out = getattr(err, 'output', b'')
+        out = getattr(err, "output", b"")
     else:
         log.warning(out)
         raise Exception("Unexpected success:" + " ".join(args))
-    out = out.decode('utf-8')
+    out = out.decode("utf-8")
     lines = []
     for line in out.splitlines():
-        if line.strip().startswith('Could not find a version that satisfies the requirement'):
+        if line.strip().startswith("Could not find a version that satisfies the requirement"):
             lines.append(line)
     [line] = lines
-    prefix = '(from versions: '
+    prefix = "(from versions: "
     start = line.index(prefix) + len(prefix)
-    stop = line.rfind(')')
-    versions = line[start:stop].split(', ')
+    stop = line.rfind(")")
+    versions = line[start:stop].split(", ")
     return versions
 
 
@@ -106,36 +106,36 @@ def get(dist_name, index_url=None, env=None):
     try:
         out = subprocess.check_output(args, stderr=subprocess.STDOUT, cwd=scratch_dir)
     except subprocess.CalledProcessError as err:
-        output = getattr(err, 'output', b'').decode('utf-8')
+        output = getattr(err, "output", b"").decode("utf-8")
         log.warning(output)
         raise
     log.debug("wheel command completed ok")
-    out = out.decode('utf-8')
+    out = out.decode("utf-8")
     links = set()
     for line in out.splitlines():
         line = line.strip()
-        if line.startswith('Downloading from URL'):
+        if line.startswith("Downloading from URL"):
             link = line.split()[3]
             links.add(link)
-        elif line.startswith('Source in ') and 'which satisfies requirement' in line:
+        elif line.startswith("Source in ") and "which satisfies requirement" in line:
             link = line.split()[-1]
             links.add(link)
     if len(links) != 1:
         log.warning(out, links=links)
-        raise Exception('Expected exactly 1 link downloaded')
+        raise Exception("Expected exactly 1 link downloaded")
     with working_directory(scratch_dir):
-        [whl] = [os.path.abspath(x) for x in os.listdir('.') if x.endswith('.whl')]
+        [whl] = [os.path.abspath(x) for x in os.listdir(".") if x.endswith(".whl")]
     url, _sep, checksum = link.partition("#")
-    if not checksum.startswith('md5=') and not checksum.startswith('sha256='):
+    if not checksum.startswith("md5=") and not checksum.startswith("sha256="):
         # PyPI gives you the checksum in url fragment, as a convenience. But not all indices are so kind.
-        algorithm = 'md5'
-        if os.path.basename(whl) == url.rsplit('/')[-1]:
+        algorithm = "md5"
+        if os.path.basename(whl) == url.rsplit("/")[-1]:
             target = whl
         else:
             scratch_file = os.path.join(scratch_dir, os.path.basename(url))
             target, _headers = urlretrieve(url, scratch_file)
         checksum = compute_checksum(target=target, algorithm=algorithm)
-        checksum = '='.join([algorithm, checksum])
+        checksum = "=".join([algorithm, checksum])
     result = {"path": whl, "url": url, "checksum": checksum}
     return result
 
@@ -144,8 +144,8 @@ def main():
     parser = ArgumentParser()
     parser.add_argument("dist_name")
     parser.add_argument("--index-url", "-i")
-    parser.add_argument("--for-python", "-p", dest='env', type=python_interpreter)
-    parser.add_argument("--verbose", "-v", default=0, action="count")
+    parser.add_argument("--for-python", "-p", dest="env", type=python_interpreter)
+    parser.add_argument("--verbose", "-v", default=1, type=int, choices=range(3))
     debug = {
         "sys.argv": sys.argv,
         "sys.executable": sys.executable,
@@ -156,7 +156,7 @@ def main():
     }
     args = parser.parse_args()
     configure_logging(verbosity=args.verbose)
-    log.debug('runtime info', **debug)
+    log.debug("runtime info", **debug)
     result = get(dist_name=args.dist_name, index_url=args.index_url, env=args.env)
     text = json.dumps(result, indent=2, sort_keys=True, separators=(",", ": "))
     print(text)
