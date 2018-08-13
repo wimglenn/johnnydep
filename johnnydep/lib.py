@@ -185,8 +185,9 @@ class JohnnyDist(anytree.NodeMixin):
 
     @property
     def summary(self):
-        text = self.metadata.get("summary") or self.metadata.get("Summary")
-        return text.lstrip("#").strip()
+        text = self.metadata.get("summary") or self.metadata.get("Summary") or ''
+        result = text.lstrip("#").strip()
+        return result
 
     @cached_property
     def versions_available(self):
