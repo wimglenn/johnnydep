@@ -1,3 +1,10 @@
+[![Build Status](https://travis-ci.org/wimglenn/johnnydep.svg?branch=master)](https://travis-ci.org/wimglenn/johnnydep)
+
+[![Coverage Status](https://coveralls.io/repos/github/wimglenn/johnnydep/badge.svg?branch=CI)](https://coveralls.io/github/wimglenn/johnnydep?branch=CI)
+
+[![PyPI](https://img.shields.io/pypi/v/johnnydep.svg)](https://pypi.org/project/johnnydep/)
+
+
 Johnnydep
 =========
 
