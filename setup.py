@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name="johnnydep",
-    version="0.3",
+    version="0.4",
     description="Display dependency tree of Python distribution",
     long_description="",
     packages=["johnnydep"],
