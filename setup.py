@@ -4,7 +4,7 @@ setup(
     name="johnnydep",
     version="0.4",
     description="Display dependency tree of Python distribution",
-    long_description="",
+    long_description=open("README.md").read(),
     packages=["johnnydep"],
     author="Wim Glenn",
     author_email="hey@wimglenn.com",
