@@ -83,7 +83,7 @@ def make_wheel(capsys, mocker, scratch_dir="/tmp/jdtest", python_tag=None, callb
     return dist, dist_path, md5
 
 
-@pytest.fixture()
+@pytest.fixture
 def add_to_index():
     index_data = {}
 
@@ -94,7 +94,7 @@ def add_to_index():
     yield add_package
 
 
-@pytest.fixture()
+@pytest.fixture
 def make_dist(tmpdir, add_to_index, capsys, mocker):
     def f(**kwargs):
         return make_wheel(capsys, mocker, scratch_dir=str(tmpdir), callback=add_to_index, **kwargs)

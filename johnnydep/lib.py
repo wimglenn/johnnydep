@@ -19,7 +19,7 @@ from packaging.markers import default_environment
 from packaging.utils import canonicalize_name
 from packaging.utils import canonicalize_version
 from structlog import get_logger
-from wheel.install import WheelFile
+from wheel.wheelfile import WheelFile
 from wimpy import cached_property
 
 from johnnydep import pipper
@@ -42,7 +42,6 @@ class JohnnyDist(anytree.NodeMixin):
         self.dist_path = None
         if req_string.endswith(".whl") and os.path.isfile(req_string):
             self.dist_path = req_string
-            req_string = os.path.basename(req_string)
             whl = WheelFile(req_string)
             whl_name_info = whl.parsed_filename.groupdict()
             self.name = canonicalize_name(whl_name_info["name"])
