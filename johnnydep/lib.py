@@ -190,7 +190,7 @@ class JohnnyDist(anytree.NodeMixin):
 
     @cached_property
     def versions_available(self):
-        return pipper.get_versions(self.name, index_url=self.index_url, env=self.env)
+        return pipper.get_versions(self.project_name, index_url=self.index_url, env=self.env)
 
     @cached_property
     def version_installed(self):
@@ -253,7 +253,7 @@ class JohnnyDist(anytree.NodeMixin):
         version = self.version_latest_in_spec
         if version is None:
             raise Exception("Can not pin because no version available is in spec")
-        result = "{}{}=={}".format(self.name, extras, version)
+        result = "{}{}=={}".format(self.project_name, extras, version)
         return result
 
     @cached_property
@@ -296,6 +296,16 @@ class JohnnyDist(anytree.NodeMixin):
         return result
 
     serialize = serialise
+
+    def _repr_pretty_(self, p, cycle):
+        # hook for IPython's pretty-printer
+        if cycle:
+            p.text(repr(self))
+        else:
+            fullname = self.name + self.specifier
+            if self.extras_requested:
+                fullname += "[{}]".format(",".join(self.extras_requested))
+            p.text("<{} {} at {}>".format(type(self).__name__, fullname, hex(id(self))))
 
 
 def gen_table(johnnydist, extra_cols=()):

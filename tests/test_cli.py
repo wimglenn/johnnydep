@@ -123,10 +123,10 @@ def test_requirements_txt_output(mocker, capsys, make_dist):
     assert err == ""
     assert out == dedent(
         """\
-        dista==0.1
-        distb1==0.1
-        distb2==0.1
-        distc[x,y,z]==0.1
+        distA==0.1
+        distB1==0.1
+        distB2==0.1
+        distC[x,y,z]==0.1
     """
     )
 

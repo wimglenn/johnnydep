@@ -423,3 +423,19 @@ def test_env_data_converted_to_dict(make_dist):
     env_data = ("pip_version", "18.0"), ("python_executable", sys.executable)
     jdist = JohnnyDist("jdtest", env=env_data)
     assert jdist.env_data == {"pip_version": "18.0", "python_executable": sys.executable}
+
+
+def test_pprint(make_dist, mocker):
+    mock_printer = mocker.MagicMock()
+    make_dist()
+    jdist = JohnnyDist("jdtest")
+    jdist._repr_pretty_(mock_printer, cycle=False)
+    pretty = '<JohnnyDist jdtest at 0x{:x}>'.format(id(jdist))
+    mock_printer.text.reset_mock()
+    jdist = JohnnyDist("jdtest[a]~=0.1.2")
+    jdist._repr_pretty_(mock_printer, cycle=False)
+    pretty = '<JohnnyDist jdtest~=0.1.2[a] at 0x{:x}>'.format(id(jdist))
+    mock_printer.text.assert_called_once_with(pretty)
+    mock_printer.text.reset_mock()
+    jdist._repr_pretty_(mock_printer, cycle=True)
+    mock_printer.text.assert_called_once_with(repr(jdist))
