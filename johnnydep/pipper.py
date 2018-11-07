@@ -94,7 +94,8 @@ def get_versions(dist_name, index_url=None, env=None):
     prefix = "(from versions: "
     start = line.index(prefix) + len(prefix)
     stop = line.rfind(")")
-    versions = line[start:stop].split(", ")
+    versions = line[start:stop].split(",")
+    versions = [v.strip() for v in versions if v.strip()]
     return versions
 
 
