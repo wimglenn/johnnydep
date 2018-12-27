@@ -426,7 +426,7 @@ def test_env_data_converted_to_dict(make_dist):
 
 
 def test_pprint(make_dist, mocker):
-    mocker.patch("johnnydep.lib.id", return_value=3735928559)
+    mocker.patch("johnnydep.lib.id", return_value=3735928559, create=True)
     mock_printer = mocker.MagicMock()
     make_dist()
     jdist = JohnnyDist("jdtest")
