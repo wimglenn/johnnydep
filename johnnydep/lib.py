@@ -5,6 +5,7 @@ import errno
 import json
 import os
 import re
+import tempfile
 from collections import OrderedDict
 from collections import defaultdict
 from zipfile import ZipFile
@@ -234,7 +235,7 @@ class JohnnyDist(anytree.NodeMixin):
     @classmethod
     def tmp(cls):
         if getattr(cls, "_tmpdir", None) is None:
-            tmpdir = os.path.join((os.environ.get("TMPDIR") or "/tmp"), "johnnydep")
+            tmpdir = os.path.join(tempfile.gettempfile(), "johnnydep")
             logger.debug("get or create scratch", tmpdir=tmpdir)
             try:
                 os.mkdir(tmpdir)
