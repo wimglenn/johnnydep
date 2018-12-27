@@ -235,7 +235,8 @@ class JohnnyDist(anytree.NodeMixin):
     @classmethod
     def tmp(cls):
         if getattr(cls, "_tmpdir", None) is None:
-            tmpdir = os.path.join(tempfile.gettempfile(), "johnnydep")
+            tmpdir = os.environ.get("TMPDIR") or tempfile.gettempdir()
+            tmpdir = os.path.join(tmpdir, "johnnydep")
             logger.debug("get or create scratch", tmpdir=tmpdir)
             try:
                 os.mkdir(tmpdir)
