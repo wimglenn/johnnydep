@@ -49,7 +49,7 @@ def _get_hostname(url):
     return host
 
 
-def _get_wheel_args(index_url, env):
+def _get_wheel_args(index_url, env, extra_index_url):
     args = [
         sys.executable,
         "-m",
@@ -62,6 +62,8 @@ def _get_wheel_args(index_url, env):
     ]
     if index_url is not None and index_url != DEFAULT_INDEX:
         args += ["--index-url", index_url, "--trusted-host", _get_hostname(index_url)]
+    if extra_index_url is not None:
+        args += ["--extra-index-url", extra_index_url, "--trusted-host", _get_hostname(extra_index_url)]
     if env is None:
         pip_version = pip.__version__
     else:
@@ -73,10 +75,10 @@ def _get_wheel_args(index_url, env):
 
 
 @ttl_cache(maxsize=512, ttl=60 * 5)
-def get_versions(dist_name, index_url=None, env=None):
+def get_versions(dist_name, index_url=None, env=None, extra_index_url=None):
     bare_name = pkg_resources.Requirement.parse(dist_name).name
     log.debug("checking versions available", dist=bare_name)
-    args = _get_wheel_args(index_url, env) + [dist_name + "==showmethemoney"]
+    args = _get_wheel_args(index_url, env, extra_index_url) + [dist_name + "==showmethemoney"]
     try:
         out = subprocess.check_output(args, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as err:
@@ -100,8 +102,8 @@ def get_versions(dist_name, index_url=None, env=None):
 
 
 @ttl_cache(maxsize=512, ttl=60 * 5)
-def get(dist_name, index_url=None, env=None):
-    args = _get_wheel_args(index_url, env) + [dist_name]
+def get(dist_name, index_url=None, env=None, extra_index_url=None):
+    args = _get_wheel_args(index_url, env, extra_index_url) + [dist_name]
     scratch_dir = tempfile.mkdtemp()
     log.debug("wheeling and dealing", scratch_dir=scratch_dir, args=" ".join(args))
     try:
@@ -145,6 +147,7 @@ def main():
     parser = ArgumentParser()
     parser.add_argument("dist_name")
     parser.add_argument("--index-url", "-i")
+    parser.add_argument("--extra-index-url")
     parser.add_argument("--for-python", "-p", dest="env", type=python_interpreter)
     parser.add_argument("--verbose", "-v", default=1, type=int, choices=range(3))
     debug = {
@@ -158,7 +161,7 @@ def main():
     args = parser.parse_args()
     configure_logging(verbosity=args.verbose)
     log.debug("runtime info", **debug)
-    result = get(dist_name=args.dist_name, index_url=args.index_url, env=args.env)
+    result = get(dist_name=args.dist_name, index_url=args.index_url, env=args.env, extra_index_url=args.extra_index_url)
     text = json.dumps(result, indent=2, sort_keys=True, separators=(",", ": "))
     print(text)
 
