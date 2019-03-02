@@ -39,6 +39,7 @@ def main():
     parser = ArgumentParser()
     parser.add_argument("req", help="The project name or requirement specifier")
     parser.add_argument("--index-url", "-i")
+    parser.add_argument("--extra-index-url")
     parser.add_argument(
         "--output-format",
         "-o",
@@ -57,5 +58,5 @@ def main():
     if "ALL" in args.fields:
         args.fields = list(FIELDS)
     configure_logging(verbosity=args.verbose)
-    dist = JohnnyDist(args.req, index_url=args.index_url, env=args.env)
+    dist = JohnnyDist(args.req, index_url=args.index_url, env=args.env, extra_index_url=args.extra_index_url)
     print(dist.serialise(fields=args.fields, format=args.output_format, recurse=args.recurse))

@@ -39,7 +39,7 @@ class OrderedDefaultListDict(OrderedDict):
 
 
 class JohnnyDist(anytree.NodeMixin):
-    def __init__(self, req_string, parent=None, index_url=None, env=None):
+    def __init__(self, req_string, parent=None, index_url=None, env=None, extra_index_url=None):
         self.dist_path = None
         if req_string.endswith(".whl") and os.path.isfile(req_string):
             self.dist_path = req_string
@@ -58,11 +58,13 @@ class JohnnyDist(anytree.NodeMixin):
         log.info("init johnnydist", parent=parent and str(parent.req))
         if parent is not None:
             self.index_url = parent.index_url
+            self.extra_index_url = parent.extra_index_url
             self.required_by = [str(parent.req)]
             self.env = parent.env
             self.env_data = parent.env_data
         else:
             self.index_url = index_url
+            self.extra_index_url = extra_index_url
             self.required_by = []
             self.env = env
             if self.env is None:
@@ -73,7 +75,7 @@ class JohnnyDist(anytree.NodeMixin):
         if self.dist_path is None:
             log.debug("fetching best wheel")
             with wimpy.working_directory(self.tmp()):
-                data = pipper.get(req_string, index_url=self.index_url, env=self.env)
+                data = pipper.get(req_string, index_url=self.index_url, env=self.env, extra_index_url=self.extra_index_url)
                 self.dist_path = data["path"]
         self.parent = parent
         self._recursed = False
@@ -191,7 +193,7 @@ class JohnnyDist(anytree.NodeMixin):
 
     @cached_property
     def versions_available(self):
-        return pipper.get_versions(self.project_name, index_url=self.index_url, env=self.env)
+        return pipper.get_versions(self.project_name, index_url=self.index_url, env=self.env, extra_index_url=self.extra_index_url)
 
     @cached_property
     def version_installed(self):
@@ -260,7 +262,7 @@ class JohnnyDist(anytree.NodeMixin):
 
     @cached_property
     def _best(self):
-        return pipper.get(self.pinned, index_url=self.index_url, env=self.env)
+        return pipper.get(self.pinned, index_url=self.index_url, env=self.env, extra_index_url=self.extra_index_url)
 
     @property
     def download_link(self):
@@ -359,7 +361,7 @@ def flatten_deps(johnnydist):
                 extras="[{}]".format(",".join(sorted(extras))) if extras else "",
                 spec=spec,
             )
-            dist = JohnnyDist(req_string, index_url=dists[0].index_url)
+            dist = JohnnyDist(req_string, index_url=dists[0].index_url, extra_index_url=dists[0].extra_index_url)
             dist.required_by = required_by
             yield dist
             # TODO: check if this new version causes any new reqs!!
