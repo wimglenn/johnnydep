@@ -1,3 +1,3 @@
 """Display dependency tree of Python distribution"""
 
-__version__ = "0.8"
+__version__ = "0.9"

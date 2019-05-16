@@ -75,7 +75,12 @@ class JohnnyDist(anytree.NodeMixin):
         if self.dist_path is None:
             log.debug("fetching best wheel")
             with wimpy.working_directory(self.tmp()):
-                data = pipper.get(req_string, index_url=self.index_url, env=self.env, extra_index_url=self.extra_index_url)
+                data = pipper.get(
+                    req_string,
+                    index_url=self.index_url,
+                    env=self.env,
+                    extra_index_url=self.extra_index_url,
+                )
                 self.dist_path = data["path"]
         self.parent = parent
         self._recursed = False
@@ -187,13 +192,18 @@ class JohnnyDist(anytree.NodeMixin):
 
     @property
     def summary(self):
-        text = self.metadata.get("summary") or self.metadata.get("Summary") or ''
+        text = self.metadata.get("summary") or self.metadata.get("Summary") or ""
         result = text.lstrip("#").strip()
         return result
 
     @cached_property
     def versions_available(self):
-        return pipper.get_versions(self.project_name, index_url=self.index_url, env=self.env, extra_index_url=self.extra_index_url)
+        return pipper.get_versions(
+            self.project_name,
+            index_url=self.index_url,
+            env=self.env,
+            extra_index_url=self.extra_index_url,
+        )
 
     @cached_property
     def version_installed(self):
@@ -262,7 +272,12 @@ class JohnnyDist(anytree.NodeMixin):
 
     @cached_property
     def _best(self):
-        return pipper.get(self.pinned, index_url=self.index_url, env=self.env, extra_index_url=self.extra_index_url)
+        return pipper.get(
+            self.pinned,
+            index_url=self.index_url,
+            env=self.env,
+            extra_index_url=self.extra_index_url,
+        )
 
     @property
     def download_link(self):
@@ -348,7 +363,13 @@ def flatten_deps(johnnydist):
         for dist in dists:
             if dist.version_latest_in_spec in spec and set(dist.extras_requested) >= extras:
                 dist.required_by = required_by
-                johnnydist.log.info("resolved", name=dist.name, required_by=required_by)
+                johnnydist.log.info(
+                    "resolved",
+                    name=dist.name,
+                    required_by=required_by,
+                    v=dist.version_latest_in_spec,
+                    spec=str(spec) or "ANY",
+                )
                 yield dist
                 break
         else:
@@ -361,7 +382,11 @@ def flatten_deps(johnnydist):
                 extras="[{}]".format(",".join(sorted(extras))) if extras else "",
                 spec=spec,
             )
-            dist = JohnnyDist(req_string, index_url=dists[0].index_url, extra_index_url=dists[0].extra_index_url)
+            dist = JohnnyDist(
+                req_string=req_string,
+                index_url=dists[0].index_url,
+                extra_index_url=dists[0].extra_index_url,
+            )
             dist.required_by = required_by
             yield dist
             # TODO: check if this new version causes any new reqs!!

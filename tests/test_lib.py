@@ -307,7 +307,7 @@ def test_serialiser_toml(make_dist):
 def test_serialiser_yaml(make_dist):
     make_dist()
     jdist = JohnnyDist("jdtest")
-    yaml_out = "- {name: jdtest, summary: default text for metadata summary}\n"
+    yaml_out = "- name: jdtest\n  summary: default text for metadata summary\n"
     assert jdist.serialise(format="yaml") == yaml_out
 
 
@@ -431,12 +431,12 @@ def test_pprint(make_dist, mocker):
     make_dist()
     jdist = JohnnyDist("jdtest")
     jdist._repr_pretty_(mock_printer, cycle=False)
-    pretty = '<JohnnyDist jdtest at 0xdeadbeef>'
+    pretty = "<JohnnyDist jdtest at 0xdeadbeef>"
     mock_printer.text.assert_called_once_with(pretty)
     mock_printer.text.reset_mock()
     jdist = JohnnyDist("jdtest[a]~=0.1.2")
     jdist._repr_pretty_(mock_printer, cycle=False)
-    pretty = '<JohnnyDist jdtest~=0.1.2[a] at 0xdeadbeef>'
+    pretty = "<JohnnyDist jdtest~=0.1.2[a] at 0xdeadbeef>"
     mock_printer.text.assert_called_once_with(pretty)
     mock_printer.text.reset_mock()
     jdist._repr_pretty_(mock_printer, cycle=True)

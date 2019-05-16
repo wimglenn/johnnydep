@@ -89,8 +89,9 @@ def get_versions(dist_name, index_url=None, env=None, extra_index_url=None):
         raise Exception("Unexpected success:" + " ".join(args))
     out = out.decode("utf-8")
     lines = []
+    msg = "Could not find a version that satisfies the requirement"
     for line in out.splitlines():
-        if line.strip().startswith("Could not find a version that satisfies the requirement"):
+        if msg in line:
             lines.append(line)
     [line] = lines
     prefix = "(from versions: "
