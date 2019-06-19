@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 from argparse import ArgumentParser
+from collections import OrderedDict
 
 import pip
 import pkg_resources
@@ -115,18 +116,26 @@ def get(dist_name, index_url=None, env=None, extra_index_url=None):
         raise
     log.debug("wheel command completed ok")
     out = out.decode("utf-8")
-    links = set()
+    links = []
     for line in out.splitlines():
         line = line.strip()
         if line.startswith("Downloading from URL"):
             link = line.split()[3]
-            links.add(link)
+            links.append(link)
         elif line.startswith("Source in ") and "which satisfies requirement" in line:
             link = line.split()[-1]
-            links.add(link)
-    if len(links) != 1:
-        log.warning(out, links=links)
-        raise Exception("Expected exactly 1 link downloaded")
+            links.append(link)
+    links = list(OrderedDict.fromkeys(links))  # order-preserving dedupe
+    if not links:
+        log.warning("could not find download link", out=out)
+        raise Exception("failed to collect dist")
+    if len(links) > 1:
+        log.debug("more than 1 link collected", out=out, links=links)
+        # Since PEP 517, maybe an sdist will also need to collect other distributions
+        # for the build system, even with --no-deps specified. pendulum==1.4.4 is one
+        # example, which uses poetry and doesn't publish any python37 wheel to PyPI.
+        # However, the dist itself should still be the first one downloaded.
+    link = links[0]
     with working_directory(scratch_dir):
         [whl] = [os.path.abspath(x) for x in os.listdir(".") if x.endswith(".whl")]
     url, _sep, checksum = link.partition("#")
