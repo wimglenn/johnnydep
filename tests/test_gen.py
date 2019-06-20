@@ -2,6 +2,7 @@
 from __future__ import unicode_literals
 
 import os
+import urllib
 
 import pytest
 
@@ -67,7 +68,7 @@ def test_build_from_sdist(add_to_index):
     assert dist.extras_available == []
     assert dist.extras_requested == []
     assert dist.project_name == "copyingmock"
-    assert dist.download_link == "file://{}".format(sdist_fname)
+    assert dist.download_link == "file://{}".format(urllib.parse.quote(sdist_fname))
     assert dist.checksum == "md5=9aa6ba13542d25e527fe358d53cdaf3b"
 
 
