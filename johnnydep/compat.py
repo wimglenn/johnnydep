@@ -8,6 +8,12 @@ except ImportError:
     from urllib import urlretrieve
 
 try:
+    from urllib.parse import quote
+except ImportError:
+    # Python 2
+    from urllib import quote
+
+try:
     from json import JSONDecodeError
 except ImportError:
     # Python 2
