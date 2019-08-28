@@ -10,6 +10,11 @@ python:
   - "pypy3.5"
   - "nightly"
 
+matrix:
+  fast_finish: true
+  allow_failures:
+  - python: "nightly"
+
 install:
   - pip install --upgrade pip setuptools wheel pytest
   - pip install -r requirements-dev.txt

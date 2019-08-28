@@ -1,10 +1,10 @@
 # coding: utf-8
 from __future__ import unicode_literals
 
-import errno
 import json
 import os
 import re
+import shutil
 import tempfile
 from collections import OrderedDict
 from collections import defaultdict
@@ -74,14 +74,24 @@ class JohnnyDist(anytree.NodeMixin):
             log.debug("target env", **self.env_data)
         if self.dist_path is None:
             log.debug("fetching best wheel")
-            with wimpy.working_directory(self.tmp()):
-                data = pipper.get(
-                    req_string,
-                    index_url=self.index_url,
-                    env=self.env,
-                    extra_index_url=self.extra_index_url,
-                )
+            tmpdir = tempfile.mkdtemp()
+            log.debug("created scratch", tmpdir=tmpdir)
+            try:
+                with wimpy.working_directory(tmpdir):
+                    data = pipper.get(
+                        req_string,
+                        index_url=self.index_url,
+                        env=self.env,
+                        extra_index_url=self.extra_index_url,
+                        tmpdir=tmpdir,
+                    )
                 self.dist_path = data["path"]
+                # triggers retrieval of any info we need from downloaded dist
+                self.import_names
+                self.metadata
+            finally:
+                log.debug("removing scratch", tmpdir=tmpdir)
+                shutil.rmtree(tmpdir)
         self.parent = parent
         self._recursed = False
 
@@ -244,20 +254,6 @@ class JohnnyDist(anytree.NodeMixin):
     def project_name(self):
         return self.metadata.get("name", self.name)
 
-    @classmethod
-    def tmp(cls):
-        if getattr(cls, "_tmpdir", None) is None:
-            tmpdir = os.environ.get("TMPDIR") or tempfile.gettempdir()
-            tmpdir = os.path.join(tmpdir, "johnnydep")
-            logger.debug("get or create scratch", tmpdir=tmpdir)
-            try:
-                os.mkdir(tmpdir)
-            except OSError as err:
-                if err.errno != errno.EEXIST:
-                    raise
-            cls._tmpdir = tmpdir
-        return cls._tmpdir
-
     @property
     def pinned(self):
         if self.extras_requested:
@@ -346,6 +342,7 @@ def gen_table(johnnydist, extra_cols=()):
 
 
 def flatten_deps(johnnydist):
+    # TODO: add the check for infinite recursion in here (traverse parents)
     johnnydist.log.debug("resolving dep tree")
     dist_map = OrderedDefaultListDict()
     spec_map = defaultdict(str)
