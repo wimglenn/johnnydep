@@ -21,15 +21,15 @@ setup(
         "oyaml",
         "pytoml",
         "pip",
-        "packaging>=17",
-        "wheel>=0.32.0",
-        "setuptools>=38.3",  # for pkg_resources
-        "pkginfo>=1.4.2",
+        "packaging >= 17",
+        "wheel >= 0.32.0",
+        "setuptools >= 38.3",  # for pkg_resources
+        "pkginfo >= 1.4.2",
     ],
     entry_points={
         "console_scripts": [
-            "johnnydep=johnnydep.cli:main",
-            "pipper=johnnydep.pipper:main",
+            "johnnydep = johnnydep.cli:main",
+            "pipper = johnnydep.pipper:main",
         ]
     },
 )

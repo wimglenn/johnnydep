@@ -104,9 +104,9 @@ def get_versions(dist_name, index_url=None, env=None, extra_index_url=None):
 
 
 @ttl_cache(maxsize=512, ttl=60 * 5)
-def get(dist_name, index_url=None, env=None, extra_index_url=None):
+def get(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None):
     args = _get_wheel_args(index_url, env, extra_index_url) + [dist_name]
-    scratch_dir = tempfile.mkdtemp()
+    scratch_dir = tempfile.mkdtemp(dir=tmpdir)
     log.debug("wheeling and dealing", scratch_dir=scratch_dir, args=" ".join(args))
     try:
         out = subprocess.check_output(args, stderr=subprocess.STDOUT, cwd=scratch_dir)

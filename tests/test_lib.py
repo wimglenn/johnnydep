@@ -2,6 +2,7 @@
 from __future__ import unicode_literals
 
 import hashlib
+import os
 import sys
 from subprocess import CalledProcessError
 from textwrap import dedent
@@ -142,6 +143,7 @@ def test_download_link(make_dist):
 
 def test_checksum_md5(make_dist):
     # the actual checksum value is not repeatable because of timestamps, file modes etc
+    # so we just assert that we get a value which looks like a valid checkum
     make_dist()
     jdist = JohnnyDist("jdtest")
     hashtype, sep, hashval = jdist.checksum.partition("=")
@@ -149,9 +151,16 @@ def test_checksum_md5(make_dist):
     assert sep == "="
     assert len(hashval) == 32
     assert set(hashval) <= set("1234567890abcdef")
-    with open(jdist.dist_path, mode="rb") as f:
-        expected = hashlib.md5(f.read()).hexdigest()
-    assert hashval == expected
+
+
+def test_scratch_dirs_are_being_cleaned_up(make_dist):
+    make_dist()
+    jdist = JohnnyDist("jdtest")
+    assert not os.path.exists(jdist.dist_path)
+    parent = os.path.dirname(jdist.dist_path)
+    assert not os.path.exists(parent)
+    grandparent = os.path.dirname(parent)
+    assert not os.path.exists(grandparent)
 
 
 def test_extras_available_none(make_dist):
