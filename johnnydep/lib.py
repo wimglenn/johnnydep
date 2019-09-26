@@ -16,6 +16,7 @@ import pkginfo
 import pytoml
 import tabulate
 import wimpy
+from cachetools.func import ttl_cache
 from packaging.markers import default_environment
 from packaging.utils import canonicalize_name
 from packaging.utils import canonicalize_version
@@ -40,15 +41,17 @@ class OrderedDefaultListDict(OrderedDict):
 
 class JohnnyDist(anytree.NodeMixin):
     def __init__(self, req_string, parent=None, index_url=None, env=None, extra_index_url=None):
-        self.dist_path = None
         if req_string.endswith(".whl") and os.path.isfile(req_string):
-            self.dist_path = req_string
+            existing_file = True
             whl = WheelFile(req_string)
             whl_name_info = whl.parsed_filename.groupdict()
             self.name = canonicalize_name(whl_name_info["name"])
             self.specifier = "==" + canonicalize_version(whl_name_info["ver"])
             self.req = pkg_resources.Requirement.parse(self.name + self.specifier)
+            self.import_names = _discover_import_names(req_string)
+            self.metadata = _extract_metadata(req_string)
         else:
+            existing_file = False
             self.req = pkg_resources.Requirement.parse(req_string)
             self.name = canonicalize_name(self.req.name)
             self.specifier = str(self.req.specifier)
@@ -72,70 +75,16 @@ class JohnnyDist(anytree.NodeMixin):
             else:
                 self.env_data = dict(self.env)
             log.debug("target env", **self.env_data)
-        if self.dist_path is None:
+        if not existing_file:
             log.debug("fetching best wheel")
-            tmpdir = tempfile.mkdtemp()
-            log.debug("created scratch", tmpdir=tmpdir)
-            try:
-                with wimpy.working_directory(tmpdir):
-                    data = pipper.get(
-                        req_string,
-                        index_url=self.index_url,
-                        env=self.env,
-                        extra_index_url=self.extra_index_url,
-                        tmpdir=tmpdir,
-                    )
-                self.dist_path = data["path"]
-                # triggers retrieval of any info we need from downloaded dist
-                self.import_names
-                self.metadata
-            finally:
-                log.debug("removing scratch", tmpdir=tmpdir)
-                shutil.rmtree(tmpdir)
+            self.import_names, self.metadata = _get_info(
+                dist_name=req_string,
+                index_url=index_url,
+                env=self.env,
+                extra_index_url=extra_index_url,
+            )
         self.parent = parent
         self._recursed = False
-
-    @cached_property
-    def import_names(self):
-        self.log.debug("finding import names")
-        zip = ZipFile(file=self.dist_path)
-        namelist = zip.namelist()
-        try:
-            [top_level_fname] = [x for x in namelist if x.endswith("top_level.txt")]
-        except ValueError:
-            self.log.debug("top_level absent, trying metadata")
-            try:
-                public_names = self.metadata["python.exports"]["modules"] or []
-            except KeyError:
-                # this dist was packaged by a dinosaur, exports is not in metadata.
-                # we gotta do it the hard way ...
-                public_names = []
-                for name in namelist:
-                    if ".dist-info/" not in name and ".egg-info/" not in name:
-                        parts = name.split(os.sep)
-                        if len(parts) == 2 and parts[1] == "__init__.py":
-                            # found a top-level package
-                            public_names.append(parts[0])
-                        elif len(parts) == 1:
-                            # TODO: find or make an exhaustive list of file extensions importable
-                            name, ext = os.path.splitext(parts[0])
-                            if ext == ".py" or ext == ".so":
-                                # found a top level module
-                                public_names.append(name)
-        else:
-            all_names = zip.read(top_level_fname).decode("utf-8").strip().splitlines()
-            public_names = [n for n in all_names if not n.startswith("_")]
-        return public_names
-
-    @cached_property
-    def metadata(self):
-        self.log.debug("searching metadata")
-        info = pkginfo.get_metadata(self.dist_path)
-        if info is None:
-            raise Exception("failed to get metadata")
-        data = vars(info)
-        data.pop("filename", None)
-        return data
 
     @property
     def requires(self):
@@ -387,6 +336,75 @@ def flatten_deps(johnnydist):
             dist.required_by = required_by
             yield dist
             # TODO: check if this new version causes any new reqs!!
+
+
+def _discover_import_names(whl_file):
+    log = logger.bind(whl_file=whl_file)
+    logger.debug("finding import names")
+    zipfile = ZipFile(file=whl_file)
+    namelist = zipfile.namelist()
+    try:
+        [top_level_fname] = [x for x in namelist if x.endswith("top_level.txt")]
+    except ValueError:
+        log.debug("top_level absent, trying metadata")
+        metadata = _extract_metadata(whl_file)
+        try:
+            public_names = metadata["python.exports"]["modules"] or []
+        except KeyError:
+            # this dist was packaged by a dinosaur, exports is not in metadata.
+            # we gotta do it the hard way ...
+            public_names = []
+            for name in namelist:
+                if ".dist-info/" not in name and ".egg-info/" not in name:
+                    parts = name.split(os.sep)
+                    if len(parts) == 2 and parts[1] == "__init__.py":
+                        # found a top-level package
+                        public_names.append(parts[0])
+                    elif len(parts) == 1:
+                        # TODO: find or make an exhaustive list of file extensions importable
+                        name, ext = os.path.splitext(parts[0])
+                        if ext == ".py" or ext == ".so":
+                            # found a top level module
+                            public_names.append(name)
+    else:
+        all_names = zipfile.read(top_level_fname).decode("utf-8").strip().splitlines()
+        public_names = [n for n in all_names if not n.startswith("_")]
+    return public_names
+
+
+def _extract_metadata(whl_file):
+    logger.debug("searching metadata", whl_file=whl_file)
+    info = pkginfo.get_metadata(whl_file)
+    if info is None:
+        raise Exception("failed to get metadata")
+    data = vars(info)
+    data.pop("filename", None)
+    return data
+
+
+@ttl_cache(maxsize=512, ttl=60 * 5)
+def _get_info(dist_name, index_url=None, env=None, extra_index_url=None):
+    log = logger.bind(dist_name=dist_name)
+    tmpdir = tempfile.mkdtemp()
+    log.debug("created scratch", tmpdir=tmpdir)
+    try:
+        with wimpy.working_directory(tmpdir):
+            data = pipper.get(
+                dist_name,
+                index_url=index_url,
+                env=env,
+                extra_index_url=extra_index_url,
+                tmpdir=".",
+            )
+        dist_path = data["path"]
+        # extract any info we may need from downloaded dist right now, so the
+        # downloaded file can be cleaned up immediately
+        import_names = _discover_import_names(dist_path)
+        metadata = _extract_metadata(dist_path)
+    finally:
+        log.debug("removing scratch", tmpdir=tmpdir)
+        shutil.rmtree(tmpdir)
+    return import_names, metadata
 
 
 # TODO: multi-line progress bar?

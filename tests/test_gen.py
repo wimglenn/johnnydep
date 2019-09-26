@@ -48,13 +48,6 @@ def test_generated_metadata_from_dist_path(make_dist):
     assert jdist.metadata == expected_metadata
 
 
-def test_generated_filename(tmpdir, make_dist):
-    _dist, dist_path, _checksum = make_dist()
-    jdist = JohnnyDist(dist_path)
-    expected_path = "{}/dist/jdtest-0.1.2-py2.py3-none-any.whl".format(tmpdir)
-    assert dist_path == jdist.dist_path == expected_path
-
-
 def test_build_from_sdist(add_to_index):
     sdist_fname = os.path.join(here, "copyingmock-0.2.tar.gz")
     fragment = "#md5=9aa6ba13542d25e527fe358d53cdaf3b"

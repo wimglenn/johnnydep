@@ -114,7 +114,7 @@ def get(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None):
         output = getattr(err, "output", b"").decode("utf-8")
         log.warning(output)
         raise
-    log.debug("wheel command completed ok")
+    log.debug("wheel command completed ok", dist_name=dist_name)
     out = out.decode("utf-8")
     links = []
     for line in out.splitlines():
