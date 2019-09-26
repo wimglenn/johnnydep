@@ -1,8 +1,6 @@
 # coding: utf-8
 from __future__ import unicode_literals
 
-import hashlib
-import os
 import sys
 from subprocess import CalledProcessError
 from textwrap import dedent
@@ -153,14 +151,15 @@ def test_checksum_md5(make_dist):
     assert set(hashval) <= set("1234567890abcdef")
 
 
-def test_scratch_dirs_are_being_cleaned_up(make_dist):
+def test_scratch_dirs_are_being_cleaned_up(make_dist, mocker, tmp_path):
     make_dist()
-    jdist = JohnnyDist("jdtest")
-    assert not os.path.exists(jdist.dist_path)
-    parent = os.path.dirname(jdist.dist_path)
-    assert not os.path.exists(parent)
-    grandparent = os.path.dirname(parent)
-    assert not os.path.exists(grandparent)
+    scratch = str(tmp_path)
+    mkdtemp = mocker.patch("johnnydep.lib.tempfile.mkdtemp", return_value=scratch)
+    rmtree = mocker.patch("johnnydep.lib.shutil.rmtree")
+    JohnnyDist("jdtest")
+    assert mkdtemp.call_count == 2
+    assert mkdtemp.call_args_list == [mocker.call(), mocker.call(dir=".")]
+    rmtree.assert_called_once_with(scratch)
 
 
 def test_extras_available_none(make_dist):
@@ -450,3 +449,37 @@ def test_pprint(make_dist, mocker):
     mock_printer.text.reset_mock()
     jdist._repr_pretty_(mock_printer, cycle=True)
     mock_printer.text.assert_called_once_with(repr(jdist))
+
+
+def test_get_caching(make_dist, mocker):
+    # this test is trying to make sure that distribution "c", a node which appears
+    # twice in the dependency tree, is only downloaded from the index once.
+    # i.e. check that the ttl caching on the downloader is working correctly
+    downloader = mocker.patch("johnnydep.lib.pipper.get")
+    _, c, _ = make_dist(name="c", description="leaf node")
+    _, b1, _ = make_dist(name="b1", install_requires=["c"], description="branch one")
+    _, b2, _ = make_dist(name="b2", install_requires=["c"], description="branch two")
+    _, a, _ = make_dist(name="a", install_requires=["b1", "b2"], description="root node")
+    downloader.side_effect = [
+        {"path": a},
+        {"path": b1},
+        {"path": b2},
+        {"path": c},
+    ]
+    jdist = JohnnyDist("a")
+    txt = jdist.serialise(format="human")
+    assert txt == dedent("""\
+        name       summary
+        ---------  ----------
+        a          root node
+        ├── b1     branch one
+        │   └── c  leaf node
+        └── b2     branch two
+            └── c  leaf node""")
+    assert downloader.call_count == 4
+    assert downloader.call_args_list == [
+        mocker.call("a", env=None, extra_index_url=None, index_url=None, tmpdir="."),
+        mocker.call("b1", env=None, extra_index_url=None, index_url=None, tmpdir="."),
+        mocker.call("b2", env=None, extra_index_url=None, index_url=None, tmpdir="."),
+        mocker.call("c", env=None, extra_index_url=None, index_url=None, tmpdir="."),
+    ]

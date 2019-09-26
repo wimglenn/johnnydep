@@ -10,6 +10,7 @@ from setuptools import setup
 from wimpy import strip_prefix
 from wimpy import working_directory
 
+from johnnydep import lib
 from johnnydep import pipper
 
 
@@ -17,6 +18,7 @@ from johnnydep import pipper
 def expire_caches():
     pipper.get_versions.cache_clear()
     pipper.get.cache_clear()
+    lib._get_info.cache_clear()
 
 
 @pytest.fixture(autouse=True)
@@ -95,9 +97,9 @@ def add_to_index():
 
 
 @pytest.fixture
-def make_dist(tmpdir, add_to_index, capsys, mocker):
+def make_dist(tmp_path, add_to_index, capsys, mocker):
     def f(**kwargs):
-        return make_wheel(capsys, mocker, scratch_dir=str(tmpdir), callback=add_to_index, **kwargs)
+        return make_wheel(capsys, mocker, scratch_dir=str(tmp_path), callback=add_to_index, **kwargs)
 
     return f
 
