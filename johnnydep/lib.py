@@ -41,8 +41,15 @@ class OrderedDefaultListDict(OrderedDict):
 
 class JohnnyDist(anytree.NodeMixin):
     def __init__(self, req_string, parent=None, index_url=None, env=None, extra_index_url=None):
+        log = self.log = logger.bind(dist=req_string)
+        log.info("init johnnydist", parent=parent and str(parent.req))
+        self.parent = parent
+        self.index_url = index_url
+        self.env = env
+        self.extra_index_url = extra_index_url
+        self._recursed = False
+
         if req_string.endswith(".whl") and os.path.isfile(req_string):
-            existing_file = True
             whl = WheelFile(req_string)
             whl_name_info = whl.parsed_filename.groupdict()
             self.name = canonicalize_name(whl_name_info["name"])
@@ -51,40 +58,24 @@ class JohnnyDist(anytree.NodeMixin):
             self.import_names = _discover_import_names(req_string)
             self.metadata = _extract_metadata(req_string)
         else:
-            existing_file = False
             self.req = pkg_resources.Requirement.parse(req_string)
             self.name = canonicalize_name(self.req.name)
             self.specifier = str(self.req.specifier)
-
-        self.extras_requested = sorted(self.req.extras)
-        log = self.log = logger.bind(dist=str(self.req))
-        log.info("init johnnydist", parent=parent and str(parent.req))
-        if parent is not None:
-            self.index_url = parent.index_url
-            self.extra_index_url = parent.extra_index_url
-            self.required_by = [str(parent.req)]
-            self.env = parent.env
-            self.env_data = parent.env_data
-        else:
-            self.index_url = index_url
-            self.extra_index_url = extra_index_url
-            self.required_by = []
-            self.env = env
-            if self.env is None:
-                self.env_data = default_environment()
-            else:
-                self.env_data = dict(self.env)
-            log.debug("target env", **self.env_data)
-        if not existing_file:
             log.debug("fetching best wheel")
             self.import_names, self.metadata = _get_info(
                 dist_name=req_string,
                 index_url=index_url,
-                env=self.env,
+                env=env,
                 extra_index_url=extra_index_url,
             )
-        self.parent = parent
-        self._recursed = False
+
+        self.extras_requested = sorted(self.req.extras)
+        if parent is None:
+            if env:
+                log.debug("root node target env", **dict(env))
+            self.required_by = []
+        else:
+            self.required_by = [str(parent.req)]
 
     @property
     def requires(self):
@@ -93,7 +84,10 @@ class JohnnyDist(anytree.NodeMixin):
         if not all_requires:
             return []
         result = []
-        env = self.env_data
+        if self.env is None:
+            env_data = default_environment()
+        else:
+            env_data = dict(self.env)
         for req_str in all_requires:
             req = pkg_resources.Requirement.parse(req_str)
             # TODO: find a better way to parse this
@@ -110,7 +104,7 @@ class JohnnyDist(anytree.NodeMixin):
                 if not req.marker:
                     result.append(req_short)
                     continue
-                if req.marker.evaluate(env):
+                if req.marker.evaluate(env_data):
                     self.log.debug("included conditional dep", req=req_str)
                     result.append(req_short)
                 else:
@@ -118,8 +112,8 @@ class JohnnyDist(anytree.NodeMixin):
                 continue
             assert extras
             assert set(extras) <= set(self.extras_requested)
-            assert "extra" not in env
-            if not req.marker or any(req.marker.evaluate(dict(extra=e, **env)) for e in extras):
+            assert "extra" not in env_data
+            if not req.marker or any(req.marker.evaluate(dict(extra=e, **env_data)) for e in extras):
                 self.log.debug("included requested extra", req=req_str)
                 result.append(req_short)
             else:
@@ -133,7 +127,13 @@ class JohnnyDist(anytree.NodeMixin):
         if not self._recursed:
             self.log.debug("populating dep tree")
             for dep in self.requires:
-                JohnnyDist(req_string=dep, parent=self, env=self.env)
+                JohnnyDist(
+                    req_string=dep,
+                    parent=self,
+                    index_url=self.index_url,
+                    env=self.env,
+                    extra_index_url=self.extra_index_url,
+                )
             self._recursed = True
         return super(JohnnyDist, self).children
 
@@ -331,9 +331,9 @@ def flatten_deps(johnnydist):
             )
             dist = JohnnyDist(
                 req_string=req_string,
-                index_url=dists[0].index_url,
+                index_url=johnnydist.index_url,
                 env=johnnydist.env,
-                extra_index_url=dists[0].extra_index_url,
+                extra_index_url=johnnydist.extra_index_url,
             )
             dist.required_by = required_by
             yield dist
