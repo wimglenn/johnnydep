@@ -1,7 +1,6 @@
 # coding: utf-8
 from __future__ import unicode_literals
 
-import sys
 from subprocess import CalledProcessError
 from textwrap import dedent
 
@@ -424,13 +423,6 @@ def test_resolve_unresolvable(make_dist):
         next(gen)
     msg = "DistributionNotFound: No matching distribution found for dist2<=0.1,>0.2\n"
     assert cm.value.output.decode().endswith(msg)
-
-
-def test_env_data_converted_to_dict(make_dist):
-    make_dist()
-    env_data = ("pip_version", "18.0"), ("python_executable", sys.executable)
-    jdist = JohnnyDist("jdtest", env=env_data)
-    assert jdist.env_data == {"pip_version": "18.0", "python_executable": sys.executable}
 
 
 def test_pprint(make_dist, mocker):
