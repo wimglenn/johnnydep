@@ -133,7 +133,7 @@ class JohnnyDist(anytree.NodeMixin):
         if not self._recursed:
             self.log.debug("populating dep tree")
             for dep in self.requires:
-                JohnnyDist(req_string=dep, parent=self)
+                JohnnyDist(req_string=dep, parent=self, env=self.env)
             self._recursed = True
         return super(JohnnyDist, self).children
 
@@ -304,6 +304,7 @@ def flatten_deps(johnnydist):
         required_by_map[dep.name] += dep.required_by
     for name, dists in dist_map.items():
         spec = spec_map[name]
+        spec.prereleases = True
         extras = extra_map[name]
         required_by = list(OrderedDict.fromkeys(required_by_map[name]))  # order preserving de-dupe
         for dist in dists:
@@ -331,6 +332,7 @@ def flatten_deps(johnnydist):
             dist = JohnnyDist(
                 req_string=req_string,
                 index_url=dists[0].index_url,
+                env=johnnydist.env,
                 extra_index_url=dists[0].extra_index_url,
             )
             dist.required_by = required_by
