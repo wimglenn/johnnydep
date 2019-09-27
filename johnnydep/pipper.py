@@ -100,6 +100,7 @@ def get_versions(dist_name, index_url=None, env=None, extra_index_url=None):
     stop = line.rfind(")")
     versions = line[start:stop].split(",")
     versions = [v.strip() for v in versions if v.strip()]
+    log.debug("found versions", dist=bare_name, versions=versions)
     return versions
 
 
