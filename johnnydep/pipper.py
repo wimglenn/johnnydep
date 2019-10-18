@@ -120,8 +120,13 @@ def get(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None):
     links = []
     for line in out.splitlines():
         line = line.strip()
-        if line.startswith("Downloading from URL"):
-            link = line.split()[3]
+        if line.startswith("Downloading "):
+            parts = line.split()
+            last = parts[-1]
+            if len(parts) == 3 and last.startswith("(") and last.endswith(")"):
+                link = parts[-2]
+            else:
+                link = last
             links.append(link)
         elif line.startswith("Source in ") and "which satisfies requirement" in line:
             link = line.split()[-1]
