@@ -18,6 +18,7 @@ setup(
         "wimpy",
         "colorama",  # pretty output for structlog
         "cachetools",
+        "distlib",
         "oyaml",
         "pytoml",
         "pip",

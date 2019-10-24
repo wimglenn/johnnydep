@@ -11,6 +11,7 @@ from collections import defaultdict
 from zipfile import ZipFile
 
 import anytree
+import distlib.wheel
 import pkg_resources
 import pkginfo
 import pytoml
@@ -21,7 +22,6 @@ from packaging.markers import default_environment
 from packaging.utils import canonicalize_name
 from packaging.utils import canonicalize_version
 from structlog import get_logger
-from wheel.wheelfile import WheelFile
 from wimpy import cached_property
 
 from johnnydep import pipper
@@ -50,10 +50,9 @@ class JohnnyDist(anytree.NodeMixin):
         self._recursed = False
 
         if req_string.endswith(".whl") and os.path.isfile(req_string):
-            whl = WheelFile(req_string)
-            whl_name_info = whl.parsed_filename.groupdict()
-            self.name = canonicalize_name(whl_name_info["name"])
-            self.specifier = "==" + canonicalize_version(whl_name_info["ver"])
+            whl = distlib.wheel.Wheel(req_string)
+            self.name = canonicalize_name(whl.name)
+            self.specifier = "==" + canonicalize_version(whl.version)
             self.req = pkg_resources.Requirement.parse(self.name + self.specifier)
             self.import_names = _discover_import_names(req_string)
             self.metadata = _extract_metadata(req_string)
