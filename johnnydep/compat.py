@@ -1,17 +1,11 @@
 import oyaml
 
-
 try:
-    from urllib.request import urlretrieve
-except ImportError:
-    # Python 2
-    from urllib import urlretrieve
-
-try:
-    from urllib.parse import quote
+    from urllib.parse import quote, urlparse
 except ImportError:
     # Python 2
     from urllib import quote
+    from urlparse import urlparse
 
 try:
     from json import JSONDecodeError

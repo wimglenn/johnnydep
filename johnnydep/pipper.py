@@ -14,11 +14,12 @@ from collections import OrderedDict
 
 import pip
 import pkg_resources
+import requests
 from cachetools.func import ttl_cache
 from wimpy import working_directory
 from structlog import get_logger
 
-from johnnydep.compat import urlretrieve
+from johnnydep.compat import urlparse
 from johnnydep.logs import configure_logging
 from johnnydep.util import python_interpreter
 
@@ -145,14 +146,25 @@ def get(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None):
     with working_directory(scratch_dir):
         [whl] = [os.path.abspath(x) for x in os.listdir(".") if x.endswith(".whl")]
     url, _sep, checksum = link.partition("#")
+    if index_url and ":" in index_url and "@" in index_url and urlparse(url).netloc in index_url:
+        # handling private PyPI credentials in index_url
+        auth = tuple(urlparse(index_url).netloc.split("@")[0].split(":"))
+    elif extra_index_url and ":" in extra_index_url and "@" in extra_index_url and urlparse(url).netloc in extra_index_url:
+        # handling private PyPI credentials in extra_index_url
+        auth = tuple(urlparse(extra_index_url).netloc.split("@")[0].split(":"))
+    else:
+        auth = None
     if not checksum.startswith("md5=") and not checksum.startswith("sha256="):
         # PyPI gives you the checksum in url fragment, as a convenience. But not all indices are so kind.
         algorithm = "md5"
         if os.path.basename(whl) == url.rsplit("/")[-1]:
             target = whl
         else:
-            scratch_file = os.path.join(scratch_dir, os.path.basename(url))
-            target, _headers = urlretrieve(url, scratch_file)
+            target = os.path.join(scratch_dir, os.path.basename(url))
+            r = requests.get(url, auth=auth)
+            r.raise_for_status()
+            with open(target, "wb") as fp:
+                fp.write(r.content)
         checksum = compute_checksum(target=target, algorithm=algorithm)
         checksum = "=".join([algorithm, checksum])
     result = {"path": whl, "url": url, "checksum": checksum}

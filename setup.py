@@ -23,6 +23,7 @@ setup(
         "pytoml",
         "pip",
         "packaging >= 17",
+        "requests",
         "wheel >= 0.32.0",
         "setuptools >= 38.3",  # for pkg_resources
         "pkginfo >= 1.4.2",
