@@ -14,12 +14,11 @@ from collections import OrderedDict
 
 import pip
 import pkg_resources
-import requests
 from cachetools.func import ttl_cache
 from wimpy import working_directory
 from structlog import get_logger
 
-from johnnydep.compat import urlparse
+from johnnydep.compat import urlparse, urlretrieve
 from johnnydep.logs import configure_logging
 from johnnydep.util import python_interpreter
 
@@ -160,11 +159,8 @@ def get(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None):
         if os.path.basename(whl) == url.rsplit("/")[-1]:
             target = whl
         else:
-            target = os.path.join(scratch_dir, os.path.basename(url))
-            r = requests.get(url, auth=auth)
-            r.raise_for_status()
-            with open(target, "wb") as fp:
-                fp.write(r.content)
+            scratch_file = os.path.join(scratch_dir, os.path.basename(url))
+            target, _headers = urlretrieve(url, scratch_file, auth=auth)
         checksum = compute_checksum(target=target, algorithm=algorithm)
         checksum = "=".join([algorithm, checksum])
     result = {"path": whl, "url": url, "checksum": checksum}

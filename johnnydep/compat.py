@@ -4,8 +4,39 @@ try:
     from urllib.parse import quote, urlparse
 except ImportError:
     # Python 2
-    from urllib import quote
+    from urllib2 import quote
     from urlparse import urlparse
+
+
+def urlretrieve(url, filename, reporthook=None, data=None, auth=None):
+    try:
+        from urllib import request as urllib2
+    except ImportError:
+        # Python 2
+        import urllib2
+
+    if auth is not None:
+        # https://docs.python.org/2.7/howto/urllib2.html#id6
+        password_mgr = urllib2.HTTPPasswordMgrWithDefaultRealm()
+
+        # Add the username and password.
+        # If we knew the realm, we could use it instead of None.
+        username, password = auth
+        top_level_url = urlparse(url).netloc
+        password_mgr.add_password(None, top_level_url, username, password)
+
+        handler = urllib2.HTTPBasicAuthHandler(password_mgr)
+
+        # create "opener" (OpenerDirector instance)
+        opener = urllib2.build_opener(handler)
+    else:
+        opener = urllib2.build_opener()
+
+    # Install the opener.
+    # Now all calls to urllib2.urlopen use our opener.
+    urllib2.install_opener(opener)
+    return urllib2.urlretrieve(url, filename, reporthook=reporthook, data=data)
+
 
 try:
     from json import JSONDecodeError
