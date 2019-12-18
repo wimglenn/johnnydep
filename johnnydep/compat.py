@@ -8,7 +8,7 @@ except ImportError:
     from urlparse import urlparse
 
 
-def urlretrieve(url, filename, reporthook=None, data=None, auth=None):
+def urlretrieve(url, filename, data=None, auth=None):
     try:
         from urllib import request as urllib2
     except ImportError:
@@ -32,10 +32,14 @@ def urlretrieve(url, filename, reporthook=None, data=None, auth=None):
     else:
         opener = urllib2.build_opener()
 
-    # Install the opener.
-    # Now all calls to urllib2.urlopen use our opener.
-    urllib2.install_opener(opener)
-    return urllib2.urlretrieve(url, filename, reporthook=reporthook, data=data)
+    res = opener.open(url, data=data)
+
+    headers = res.info()
+
+    with open(filename, "wb") as fp:
+        fp.write(res.read())
+
+    return filename, headers
 
 
 try:
