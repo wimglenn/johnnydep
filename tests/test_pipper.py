@@ -4,6 +4,7 @@ from __future__ import unicode_literals
 import json
 import os
 
+import pytest
 from wimpy import working_directory
 
 import johnnydep.pipper
@@ -54,3 +55,64 @@ def test_get_wheel_args():
         "--trusted-host",
         "example.org",
     ]
+
+
+@pytest.mark.parametrize(
+    "url, index_url, extra_index_url, expected",
+    [
+        (
+            "https://pypi.example.com/packages",
+            "https://pypi.example.com/simple",
+            None,
+            None,
+        ),
+        (
+            "https://pypi.example.com/packages",
+            "https://user:pass@pypi.example.com/simple",
+            None,
+            ("user", "pass"),
+        ),
+        (
+            "https://pypi.extra.com/packages",
+            "https://user:pass@pypi.example.com/simple",
+            "https://pypi.extra.com/simple",
+            None,
+        ),
+        (
+            "https://pypi.extra.com/packages",
+            "https://user:pass@pypi.example.com/simple",
+            "https://user:extrapass@pypi.extra.com/simple",
+            ("user", "extrapass"),
+        ),
+        (
+            "https://pypi.extra.com/packages",
+            None,
+            "https://user:extrapass@pypi.extra.com/simple",
+            ("user", "extrapass"),
+        ),
+    ],
+    ids=(
+        "index_url without auth",
+        "index_url with auth",
+        "extra_index_url without auth",
+        "extra_index_url with auth",
+        "extra_index_url with auth (no index_url)",
+    ),
+)
+def test_download_dist_auth(mocker, url, index_url, extra_index_url, expected):
+    here = os.path.dirname(__file__)
+    whl_fname = os.path.join(here, "vanilla-0.1.2-py2.py3-none-any.whl")
+    # return auth instead of headers
+    mocker.patch(
+        "johnnydep.pipper.urlretrieve",
+        new=lambda url, target, auth: (target, auth),
+    )
+
+    target, auth = johnnydep.pipper._download_dist(
+        url=url + "/vanilla/0.1.2/vanilla-0.1.2-py2.py3-none-any.whl",
+        scratch_file=whl_fname,
+        index_url=index_url,
+        extra_index_url=extra_index_url,
+    )
+    assert target == whl_fname
+    assert auth == expected

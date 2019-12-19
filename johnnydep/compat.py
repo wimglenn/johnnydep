@@ -2,19 +2,15 @@ import oyaml
 
 try:
     from urllib.parse import quote, urlparse
+    from urllib import request as urllib2
 except ImportError:
     # Python 2
+    import urllib2
     from urllib2 import quote
     from urlparse import urlparse
 
 
 def urlretrieve(url, filename, data=None, auth=None):
-    try:
-        from urllib import request as urllib2
-    except ImportError:
-        # Python 2
-        import urllib2
-
     if auth is not None:
         # https://docs.python.org/2.7/howto/urllib2.html#id6
         password_mgr = urllib2.HTTPPasswordMgrWithDefaultRealm()
