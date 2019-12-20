@@ -40,16 +40,6 @@ def compute_checksum(target, algorithm="sha256", blocksize=2 ** 13):
     return result
 
 
-def _get_hostname(url):
-    left, sep, right = url.partition("://")
-    host = right if sep else left
-    left, sep, right = host.partition("@")
-    host = right if sep else left
-    host, _sep, _path = host.partition("/")
-    host, _sep, _port = host.partition(":")
-    return host
-
-
 def _get_wheel_args(index_url, env, extra_index_url):
     args = [
         sys.executable,
@@ -62,9 +52,9 @@ def _get_wheel_args(index_url, env, extra_index_url):
         "--disable-pip-version-check",
     ]
     if index_url is not None and index_url != DEFAULT_INDEX:
-        args += ["--index-url", index_url, "--trusted-host", _get_hostname(index_url)]
+        args += ["--index-url", index_url, "--trusted-host", urlparse(index_url).hostname]
     if extra_index_url is not None:
-        args += ["--extra-index-url", extra_index_url, "--trusted-host", _get_hostname(extra_index_url)]
+        args += ["--extra-index-url", extra_index_url, "--trusted-host", urlparse(extra_index_url).hostname]
     if env is None:
         pip_version = pip.__version__
     else:
