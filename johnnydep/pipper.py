@@ -76,14 +76,17 @@ def _get_wheel_args(index_url, env, extra_index_url):
 
 
 def _download_dist(url, scratch_file, index_url, extra_index_url):
-    if index_url and ":" in index_url and "@" in index_url and urlparse(url).netloc in index_url:
-        # handling private PyPI credentials in index_url
-        auth = tuple(urlparse(index_url).netloc.split("@")[0].split(":"))
-    elif extra_index_url and ":" in extra_index_url and "@" in extra_index_url and urlparse(url).netloc in extra_index_url:
-        # handling private PyPI credentials in extra_index_url
-        auth = tuple(urlparse(extra_index_url).netloc.split("@")[0].split(":"))
-    else:
-        auth = None
+    auth = None
+    if index_url:
+        parsed = urlparse(index_url)
+        if parsed.username and parsed.password and parsed.hostname == urlparse(url).hostname:
+            # handling private PyPI credentials in index_url
+            auth = (parsed.username, parsed.password)
+    if extra_index_url:
+        parsed = urlparse(extra_index_url)
+        if parsed.username and parsed.password and parsed.hostname == urlparse(url).hostname:
+            # handling private PyPI credentials in extra_index_url
+            auth = (parsed.username, parsed.password)
     target, _headers = urlretrieve(url, scratch_file, auth=auth)
     return target, _headers
 
