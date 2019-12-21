@@ -18,7 +18,7 @@ from cachetools.func import ttl_cache
 from wimpy import working_directory
 from structlog import get_logger
 
-from johnnydep.compat import urlretrieve
+from johnnydep.compat import urlparse, urlretrieve
 from johnnydep.logs import configure_logging
 from johnnydep.util import python_interpreter
 
@@ -40,16 +40,6 @@ def compute_checksum(target, algorithm="sha256", blocksize=2 ** 13):
     return result
 
 
-def _get_hostname(url):
-    left, sep, right = url.partition("://")
-    host = right if sep else left
-    left, sep, right = host.partition("@")
-    host = right if sep else left
-    host, _sep, _path = host.partition("/")
-    host, _sep, _port = host.partition(":")
-    return host
-
-
 def _get_wheel_args(index_url, env, extra_index_url):
     args = [
         sys.executable,
@@ -62,9 +52,9 @@ def _get_wheel_args(index_url, env, extra_index_url):
         "--disable-pip-version-check",
     ]
     if index_url is not None and index_url != DEFAULT_INDEX:
-        args += ["--index-url", index_url, "--trusted-host", _get_hostname(index_url)]
+        args += ["--index-url", index_url, "--trusted-host", urlparse(index_url).hostname]
     if extra_index_url is not None:
-        args += ["--extra-index-url", extra_index_url, "--trusted-host", _get_hostname(extra_index_url)]
+        args += ["--extra-index-url", extra_index_url, "--trusted-host", urlparse(extra_index_url).hostname]
     if env is None:
         pip_version = pip.__version__
     else:
@@ -73,6 +63,22 @@ def _get_wheel_args(index_url, env, extra_index_url):
     if int(pip_version.split(".")[0]) >= 10:
         args.append("--progress-bar=off")
     return args
+
+
+def _download_dist(url, scratch_file, index_url, extra_index_url):
+    auth = None
+    if index_url:
+        parsed = urlparse(index_url)
+        if parsed.username and parsed.password and parsed.hostname == urlparse(url).hostname:
+            # handling private PyPI credentials in index_url
+            auth = (parsed.username, parsed.password)
+    if extra_index_url:
+        parsed = urlparse(extra_index_url)
+        if parsed.username and parsed.password and parsed.hostname == urlparse(url).hostname:
+            # handling private PyPI credentials in extra_index_url
+            auth = (parsed.username, parsed.password)
+    target, _headers = urlretrieve(url, scratch_file, auth=auth)
+    return target, _headers
 
 
 @ttl_cache(maxsize=512, ttl=60 * 5)
@@ -152,7 +158,7 @@ def get(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None):
             target = whl
         else:
             scratch_file = os.path.join(scratch_dir, os.path.basename(url))
-            target, _headers = urlretrieve(url, scratch_file)
+            target, _headers = _download_dist(url, scratch_file, index_url, extra_index_url)
         checksum = compute_checksum(target=target, algorithm=algorithm)
         checksum = "=".join([algorithm, checksum])
     result = {"path": whl, "url": url, "checksum": checksum}
