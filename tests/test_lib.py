@@ -475,3 +475,13 @@ def test_get_caching(make_dist, mocker):
         mocker.call("b2", env=None, extra_index_url=None, index_url=None, tmpdir="."),
         mocker.call("c", env=None, extra_index_url=None, index_url=None, tmpdir="."),
     ]
+
+
+def test_extras_parsing(make_dist, mocker):
+    make_dist(name="parent", install_requires=['child; extra == "foo" or extra == "bar"'])
+    make_dist(name="child")
+    assert JohnnyDist("parent").requires == []
+    assert JohnnyDist("parent[foo]").requires == ["child"]
+    assert JohnnyDist("parent[bar]").requires == ["child"]
+    assert JohnnyDist("parent[baz]").requires == []
+    assert JohnnyDist("parent[baz,foo]").requires == ["child"]
