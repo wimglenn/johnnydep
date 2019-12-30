@@ -89,34 +89,19 @@ class JohnnyDist(anytree.NodeMixin):
             env_data = dict(self.env)
         for req_str in all_requires:
             req = pkg_resources.Requirement.parse(req_str)
-            # TODO: find a better way to parse this
-            extras = re.findall(r'extra == "(.*?)"', str(req.marker))
-            if len(extras) > 1:
-                raise Exception("ouch")
-            elif len(extras) == 1:
-                [extra] = extras
-                if extra not in self.extras_requested:
-                    self.log.debug("dropped unrequested extra", req=req_str)
-                    continue
-            req_short, _sep, _markers = str(req).partition(";")
-            if not extras:
-                if not req.marker:
-                    result.append(req_short)
-                    continue
-                if req.marker.evaluate(env_data):
+            req_short, _sep, _marker = str(req).partition(";")
+            if req.marker is None:
+                # unconditional dependency
+                result.append(req_short)
+                continue
+            # conditional dependency - must be evaluated in environment context
+            for extra in [None] + self.extras_requested:
+                if req.marker.evaluate(dict(env_data, extra=extra)):
                     self.log.debug("included conditional dep", req=req_str)
                     result.append(req_short)
-                else:
-                    self.log.debug("dropped conditional dep", req=req_str)
-                continue
-            assert extras
-            assert set(extras) <= set(self.extras_requested)
-            assert "extra" not in env_data
-            if not req.marker or any(req.marker.evaluate(dict(extra=e, **env_data)) for e in extras):
-                self.log.debug("included requested extra", req=req_str)
-                result.append(req_short)
+                    break
             else:
-                self.log.debug("dropped conditional extra", req=req_str)
+                self.log.debug("dropped conditional dep", req=req_str)
         result = sorted(set(result))  # this makes the dep tree deterministic/repeatable
         return result
 
