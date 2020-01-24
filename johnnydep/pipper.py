@@ -131,6 +131,8 @@ def get(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None):
             last = parts[-1]
             if len(parts) == 3 and last.startswith("(") and last.endswith(")"):
                 link = parts[-2]
+            elif len(parts) == 4 and parts[-2].startswith("(") and last.endswith(")"):
+                link = parts[-3]
             else:
                 link = last
             links.append(link)

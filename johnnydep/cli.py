@@ -6,6 +6,7 @@ import os
 from argparse import ArgumentParser
 from collections import OrderedDict
 
+import johnnydep
 from johnnydep.lib import JohnnyDist
 from johnnydep.logs import configure_logging
 from johnnydep.util import python_interpreter
@@ -36,7 +37,7 @@ FIELDS = OrderedDict(
 
 def main():
     default_fields = os.environ.get("JOHNNYDEP_FIELDS", "name,summary").split(",")
-    parser = ArgumentParser()
+    parser = ArgumentParser(description=johnnydep.__doc__)
     parser.add_argument("req", help="The project name or requirement specifier")
     parser.add_argument("--index-url", "-i")
     parser.add_argument("--extra-index-url")
@@ -54,6 +55,7 @@ def main():
     )
     parser.add_argument("--for-python", "-p", dest="env", type=python_interpreter)
     parser.add_argument("--verbose", "-v", default=1, type=int, choices=range(3))
+    parser.add_argument("--version", action="version", version="%(prog)s v{}".format(johnnydep.__version__))
     args = parser.parse_args()
     if "ALL" in args.fields:
         args.fields = list(FIELDS)
