@@ -51,8 +51,10 @@ def _get_wheel_args(index_url, env, extra_index_url):
         "--no-cache-dir",
         "--disable-pip-version-check",
     ]
-    if index_url is not None and index_url != DEFAULT_INDEX:
-        args += ["--index-url", index_url, "--trusted-host", urlparse(index_url).hostname]
+    if index_url is not None:
+        args += ["--index-url", index_url]
+        if index_url != DEFAULT_INDEX:
+            args += ["--trusted-host", urlparse(index_url).hostname]
     if extra_index_url is not None:
         args += ["--extra-index-url", extra_index_url, "--trusted-host", urlparse(extra_index_url).hostname]
     if env is None:
@@ -124,7 +126,8 @@ def get(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None):
     log.debug("wheel command completed ok", dist_name=dist_name)
     out = out.decode("utf-8")
     links = []
-    for line in out.splitlines():
+    lines = out.splitlines()
+    for i, line in enumerate(lines):
         line = line.strip()
         if line.startswith("Downloading "):
             parts = line.split()
@@ -133,6 +136,13 @@ def get(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None):
                 link = parts[-2]
             elif len(parts) == 4 and parts[-2].startswith("(") and last.endswith(")"):
                 link = parts[-3]
+                if not urlparse(link).scheme:
+                    # newest pip versions have changed to not log the full url
+                    # in the download event. it is becoming more and more annoying
+                    # to preserve compatibility across a wide range of pip versions
+                    next_line = lines[i + 1].strip()
+                    if next_line.startswith("Added ") and " to build tracker" in next_line:
+                        link = next_line.split(" to build tracker")[0].split()[-1]
             else:
                 link = last
             links.append(link)
