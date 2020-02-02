@@ -20,7 +20,7 @@ setup(
         "cachetools",
         "distlib",
         "oyaml",
-        "pytoml",
+        "toml",
         "pip",
         "packaging >= 17",
         "wheel >= 0.32.0",

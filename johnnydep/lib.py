@@ -14,7 +14,7 @@ import anytree
 import distlib.wheel
 import pkg_resources
 import pkginfo
-import pytoml
+import toml
 import tabulate
 import wimpy
 from cachetools.func import ttl_cache
@@ -236,7 +236,7 @@ class JohnnyDist(anytree.NodeMixin):
         elif format == "yaml":
             result = oyaml.dump(data)
         elif format == "toml":
-            result = "\n".join([pytoml.dumps(d) for d in data])
+            result = "\n".join([toml.dumps(d) for d in data])
         elif format == "pinned":
             result = "\n".join([d["pinned"] for d in data])
         else:
