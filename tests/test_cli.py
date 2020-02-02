@@ -144,12 +144,12 @@ def test_all_fields_toml_out(mocker, capsys, make_dist):
         specifier = "<0.4"
         requires = []
         required_by = []
-        import_names = ["that"]
+        import_names = [ "that",]
         homepage = "https://www.example.org/default"
         extras_available = []
         extras_requested = []
         project_name = "wimpy"
-        versions_available = ["0.3"]
+        versions_available = [ "0.3",]
         version_installed = "0.3"
         version_latest = "0.3"
         version_latest_in_spec = "0.3"
