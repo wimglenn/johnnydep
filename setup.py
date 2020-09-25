@@ -5,7 +5,7 @@ setup(
     version="1.6",
     description="Display dependency tree of Python distribution",
     long_description=open("README.md").read(),
-    long_description_content_type='text/markdown',
+    long_description_content_type="text/markdown",
     packages=["johnnydep"],
     author="Wim Glenn",
     author_email="hey@wimglenn.com",
