@@ -481,7 +481,7 @@ def test_get_caching(make_dist, mocker):
     ]
 
 
-def test_extras_parsing(make_dist, mocker):
+def test_extras_parsing(make_dist):
     make_dist(name="parent", install_requires=['child; extra == "foo" or extra == "bar"'])
     make_dist(name="child")
     assert JohnnyDist("parent").requires == []
@@ -491,11 +491,16 @@ def test_extras_parsing(make_dist, mocker):
     assert JohnnyDist("parent[baz,foo]").requires == ["child"]
 
 
-def test_license_parsing_metadaa(make_dist, mocker):
+def test_license_parsing_metadaa(make_dist):
     make_dist(license="The License")
     assert JohnnyDist("jdtest").license == "The License"
 
 
-def test_license_parsing_classifiers(make_dist, mocker):
-    make_dist(license="", classifiers=["License :: OSI Approved :: MIT License"])
+def test_license_parsing_classifiers(make_dist):
+    make_dist(license="", classifiers=["blah", "License :: OSI Approved :: MIT License"])
     assert JohnnyDist("jdtest").license == "MIT License"
+
+
+def test_license_parsing_unknown(make_dist):
+    make_dist(license="")
+    assert JohnnyDist("jdtest").license == ""
