@@ -16,7 +16,8 @@ def test_version_nonexisting(make_dist):
     with pytest.raises(CalledProcessError) as cm:
         JohnnyDist("jdtest==0.404")
     msg = "DistributionNotFound: No matching distribution found for jdtest==0.404\n"
-    assert cm.value.output.decode().endswith(msg)
+    txt = cm.value.output.decode()
+    assert msg in txt
 
 
 def test_import_names_empty(make_dist):
@@ -77,7 +78,8 @@ def test_version_latest_in_spec_prerelease_out_of_spec(make_dist):
     with pytest.raises(CalledProcessError) as cm:
         JohnnyDist("jdtest>0.1")
     msg = "DistributionNotFound: No matching distribution found for jdtest>0.1\n"
-    assert cm.value.output.decode().endswith(msg)
+    txt = cm.value.output.decode()
+    assert msg in txt
 
 
 def test_version_pinned_to_latest_in_spec(make_dist):
@@ -103,7 +105,8 @@ def test_version_in_spec_not_avail(make_dist):
     with pytest.raises(CalledProcessError) as cm:
         JohnnyDist("jdtest>4")
     msg = "DistributionNotFound: No matching distribution found for jdtest>4\n"
-    assert cm.value.output.decode().endswith(msg)
+    txt = cm.value.output.decode()
+    assert msg in txt
 
 
 def test_project_name_different_from_canonical_name(make_dist):
@@ -422,7 +425,8 @@ def test_resolve_unresolvable(make_dist):
     with pytest.raises(CalledProcessError) as cm:
         next(gen)
     msg = "DistributionNotFound: No matching distribution found for dist2<=0.1,>0.2\n"
-    assert cm.value.output.decode().endswith(msg)
+    txt = cm.value.output.decode()
+    assert msg in txt
 
 
 def test_pprint(make_dist, mocker):
@@ -485,3 +489,13 @@ def test_extras_parsing(make_dist, mocker):
     assert JohnnyDist("parent[bar]").requires == ["child"]
     assert JohnnyDist("parent[baz]").requires == []
     assert JohnnyDist("parent[baz,foo]").requires == ["child"]
+
+
+def test_license_parsing_metadaa(make_dist, mocker):
+    make_dist(license="The License")
+    assert JohnnyDist("jdtest").license == "The License"
+
+
+def test_license_parsing_classifiers(make_dist, mocker):
+    make_dist(license="", classifiers=["License :: OSI Approved :: MIT License"])
+    assert JohnnyDist("jdtest").license == "MIT License"

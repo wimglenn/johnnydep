@@ -25,6 +25,7 @@ FIELDS = OrderedDict(
         ("extras_available", "Optional extensions available for the distribution"),
         ("extras_requested", "Optional extensions parsed from requirement specifier"),
         ("project_name", "Usually matches the canonical name but may have different case"),
+        ("license", "License covering the distribution"),
         ("versions_available", "List of versions available at index"),
         ("version_installed", "Version currently installed, if any"),
         ("version_latest", "Latest version available"),
