@@ -135,8 +135,23 @@ class JohnnyDist(anytree.NodeMixin):
 
     @property
     def summary(self):
-        text = self.metadata.get("summary") or self.metadata.get("Summary") or ""
+        text = self.metadata.get("summary") or ""
         result = text.lstrip("#").strip()
+        return result
+
+    @property
+    def license(self):
+        result = self.metadata.get("license") or ""
+        # sometimes people just put the license in a trove classifier instead
+        # for a list of valid classifiers:
+        #   requests.get('https://pypi.python.org/pypi', params={':action': 'list_classifiers'}).text.splitlines()
+        self.log.debug("metadata license is not set, checking trove classifiers")
+        for classifier in self.metadata.get("classifiers", []):
+            if classifier.startswith("License :: "):
+                crap, result = classifier.rsplit(" :: ", 1)
+                break
+        if not result:
+            self.log.info("unknown license")
         return result
 
     @cached_property
@@ -363,7 +378,7 @@ def _extract_metadata(whl_file):
     info = pkginfo.get_metadata(whl_file)
     if info is None:
         raise Exception("failed to get metadata")
-    data = vars(info)
+    data = {k.lower(): v for k,v in vars(info).items()}
     data.pop("filename", None)
     return data
 

@@ -4,7 +4,7 @@ sudo: false
 
 python:
   - "2.7"
-  - "3.7"
+  - "3.8"
   - "nightly"
 
 matrix:
@@ -14,8 +14,7 @@ matrix:
 
 install:
   - pip install --upgrade pip setuptools wheel pytest
-  - pip install -r requirements-dev.txt
-  - pip install --editable .
+  - pip install -r requirements-dev.txt --use-feature=2020-resolver
 
 script:
   - pip freeze --all

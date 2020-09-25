@@ -149,6 +149,7 @@ def test_all_fields_toml_out(mocker, capsys, make_dist):
         extras_available = []
         extras_requested = []
         project_name = "wimpy"
+        license = "MIT"
         versions_available = [ "0.3",]
         version_installed = "0.3"
         version_latest = "0.3"
