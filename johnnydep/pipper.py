@@ -129,7 +129,11 @@ def get(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None):
     lines = out.splitlines()
     for i, line in enumerate(lines):
         line = line.strip()
-        if line.startswith("Downloading "):
+        if line.startswith("Downloading from URL "):
+            parts = line.split()
+            link = parts[3]
+            links.append(link)
+        elif line.startswith("Downloading "):
             parts = line.split()
             last = parts[-1]
             if len(parts) == 3 and last.startswith("(") and last.endswith(")"):
@@ -153,6 +157,13 @@ def get(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None):
     if not links:
         log.warning("could not find download link", out=out)
         raise Exception("failed to collect dist")
+    if len(links) == 2:
+        # sometimes we collect the same link, once with a url fragment/checksum and once without
+        first, second = links
+        if first.startswith(second):
+            del links[1]
+        elif second.startswith(first):
+            del links[0]
     if len(links) > 1:
         log.debug("more than 1 link collected", out=out, links=links)
         # Since PEP 517, maybe an sdist will also need to collect other distributions
@@ -163,6 +174,7 @@ def get(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None):
     with working_directory(scratch_dir):
         [whl] = [os.path.abspath(x) for x in os.listdir(".") if x.endswith(".whl")]
     url, _sep, checksum = link.partition("#")
+    url = url.replace("/%2Bf/", "/+f/")  # some versions of pip did not unquote this fragment in the log
     if not checksum.startswith("md5=") and not checksum.startswith("sha256="):
         # PyPI gives you the checksum in url fragment, as a convenience. But not all indices are so kind.
         algorithm = "md5"
