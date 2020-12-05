@@ -125,6 +125,7 @@ def fake_subprocess(mocker, add_to_index):
             "--no-cache-dir",
             "--disable-pip-version-check",
             "--progress-bar=off",
+            "--use-deprecated=legacy-resolver",
         ]
         args.extend(links)
         args.append(req)
