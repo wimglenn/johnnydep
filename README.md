@@ -33,7 +33,7 @@ A more complex tree:
             └── python-dateutil<3.0.0,>=2.1  Extensions to the standard Python datetime module
                 └── six>=1.5                 Python 2 and 3 compatibility utilities
 
-Johnnydep will also attempt to resolve the dependency tree. Note that [`pip install` lacked a working solver](https://github.com/pypa/pip/issues/988) for many years, but [pip v20.3 has a new solver](https://blog.python.org/2020/11/pip-20-3-release-new-resolver.html) (December 2020).
+Johnnydep can also attempt to resolve the dependency tree:
 
     $ johnnydep ipython --output-format pinned
     ipython==6.5.0
@@ -53,6 +53,8 @@ Johnnydep will also attempt to resolve the dependency tree. Note that [`pip inst
     six==1.11.0
     wcwidth==0.1.7
     ipython-genutils==0.2.0
+
+Note that [`pip install` lacked a working solver](https://github.com/pypa/pip/issues/988) for many years, but [pip v20.3 has a new solver](https://blog.python.org/2020/11/pip-20-3-release-new-resolver.html) (December 2020) which has really improved matters!
 
 Check `johnnydep --help` for other features and options.
 
