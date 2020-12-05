@@ -62,8 +62,14 @@ def _get_wheel_args(index_url, env, extra_index_url):
     else:
         pip_version = dict(env)["pip_version"]
         args[0] = dict(env)["python_executable"]
-    if int(pip_version.split(".")[0]) >= 10:
+    pip_major, pip_minor = pip_version.split(".")[0:2]
+    pip_major = int(pip_major)
+    pip_minor = int(pip_minor)
+    if pip_major >= 10:
         args.append("--progress-bar=off")
+    if (pip_major, pip_minor) >= (20, 3):
+        # See https://github.com/pypa/pip/issues/9139#issuecomment-735443177
+        args.append("--use-deprecated=legacy-resolver")
     return args
 
 
