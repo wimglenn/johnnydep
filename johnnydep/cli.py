@@ -47,19 +47,37 @@ def main():
         "-o",
         choices=["human", "json", "yaml", "python", "toml", "pinned"],
         default="human",
+        help="default: %(default)s",
     )
     parser.add_argument(
-        "--no-deps", help="Don't recurse the dependency tree", dest="recurse", action="store_false"
+        "--no-deps",
+        help="Don't recurse the dependency tree. Has no effect for output format 'human'",
+        dest="recurse",
+        action="store_false",
     )
     parser.add_argument(
-        "--fields", "-f", nargs="*", default=default_fields, choices=list(FIELDS) + ["ALL"]
+        "--fields",
+        "-f",
+        nargs="*",
+        default=default_fields,
+        choices=list(FIELDS) + ["ALL"],
+        help="default: %(default)s",
     )
     parser.add_argument("--for-python", "-p", dest="env", type=python_interpreter)
     parser.add_argument("--verbose", "-v", default=1, type=int, choices=range(3))
-    parser.add_argument("--version", action="version", version="%(prog)s v{}".format(johnnydep.__version__))
+    parser.add_argument(
+        "--version",
+        action="version",
+        version="%(prog)s v{}".format(johnnydep.__version__),
+    )
     args = parser.parse_args()
     if "ALL" in args.fields:
         args.fields = list(FIELDS)
     configure_logging(verbosity=args.verbose)
-    dist = JohnnyDist(args.req, index_url=args.index_url, env=args.env, extra_index_url=args.extra_index_url)
+    dist = JohnnyDist(
+        args.req,
+        index_url=args.index_url,
+        env=args.env,
+        extra_index_url=args.extra_index_url,
+    )
     print(dist.serialise(fields=args.fields, format=args.output_format, recurse=args.recurse))
