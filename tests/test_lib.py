@@ -160,8 +160,8 @@ def test_scratch_dirs_are_being_cleaned_up(make_dist, mocker, tmp_path):
     rmtree = mocker.patch("johnnydep.lib.shutil.rmtree")
     JohnnyDist("jdtest")
     assert mkdtemp.call_count == 2
-    assert mkdtemp.call_args_list == [mocker.call(), mocker.call(dir=".")]
-    rmtree.assert_called_once_with(scratch)
+    assert mkdtemp.call_args_list == [mocker.call(), mocker.call(dir=mocker.ANY)]
+    rmtree.assert_called_once_with(scratch, ignore_errors=True)
 
 
 def test_extras_available_none(make_dist):
@@ -474,10 +474,10 @@ def test_get_caching(make_dist, mocker):
             └── c  leaf node""")
     assert downloader.call_count == 4
     assert downloader.call_args_list == [
-        mocker.call("a", env=None, extra_index_url=None, index_url=None, tmpdir="."),
-        mocker.call("b1", env=None, extra_index_url=None, index_url=None, tmpdir="."),
-        mocker.call("b2", env=None, extra_index_url=None, index_url=None, tmpdir="."),
-        mocker.call("c", env=None, extra_index_url=None, index_url=None, tmpdir="."),
+        mocker.call("a", env=None, extra_index_url=None, index_url=None, tmpdir=mocker.ANY),
+        mocker.call("b1", env=None, extra_index_url=None, index_url=None, tmpdir=mocker.ANY),
+        mocker.call("b2", env=None, extra_index_url=None, index_url=None, tmpdir=mocker.ANY),
+        mocker.call("c", env=None, extra_index_url=None, index_url=None, tmpdir=mocker.ANY),
     ]
 
 

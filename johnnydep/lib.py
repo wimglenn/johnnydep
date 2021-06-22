@@ -389,14 +389,13 @@ def _get_info(dist_name, index_url=None, env=None, extra_index_url=None):
     tmpdir = tempfile.mkdtemp()
     log.debug("created scratch", tmpdir=tmpdir)
     try:
-        with wimpy.working_directory(tmpdir):
-            data = pipper.get(
-                dist_name,
-                index_url=index_url,
-                env=env,
-                extra_index_url=extra_index_url,
-                tmpdir=".",
-            )
+        data = pipper.get(
+            dist_name,
+            index_url=index_url,
+            env=env,
+            extra_index_url=extra_index_url,
+            tmpdir=tmpdir,
+        )
         dist_path = data["path"]
         # extract any info we may need from downloaded dist right now, so the
         # downloaded file can be cleaned up immediately
@@ -404,7 +403,7 @@ def _get_info(dist_name, index_url=None, env=None, extra_index_url=None):
         metadata = _extract_metadata(dist_path)
     finally:
         log.debug("removing scratch", tmpdir=tmpdir)
-        shutil.rmtree(tmpdir)
+        shutil.rmtree(tmpdir, ignore_errors=True)
     return import_names, metadata
 
 

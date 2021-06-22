@@ -17,7 +17,7 @@ from johnnydep import pipper
 @pytest.fixture(autouse=True)
 def expire_caches():
     pipper.get_versions.cache_clear()
-    pipper.get.cache_clear()
+    pipper._get_cache.clear()
     lib._get_info.cache_clear()
 
 

@@ -11,11 +11,14 @@ import sys
 import tempfile
 from argparse import ArgumentParser
 from collections import OrderedDict
+from glob import glob
 
 import pip
 import pkg_resources
+from cachetools import cached
 from cachetools.func import ttl_cache
-from wimpy import working_directory
+from cachetools.keys import hashkey
+from cachetools.ttl import TTLCache
 from structlog import get_logger
 
 from johnnydep.compat import urlparse, urlretrieve
@@ -108,7 +111,11 @@ def get_versions(dist_name, index_url=None, env=None, extra_index_url=None):
     for line in out.splitlines():
         if msg in line:
             lines.append(line)
-    [line] = lines
+    try:
+        [line] = lines
+    except ValueError:
+        log.warning("failed to get versions", stdout=out)
+        raise
     prefix = "(from versions: "
     start = line.index(prefix) + len(prefix)
     stop = line.rfind(")")
@@ -118,7 +125,16 @@ def get_versions(dist_name, index_url=None, env=None, extra_index_url=None):
     return versions
 
 
-@ttl_cache(maxsize=512, ttl=60 * 5)
+def _cache_key(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None):
+    return hashkey(dist_name, index_url, env, extra_index_url)
+
+
+# this decoration is a bit more complicated in order to avoid keying of tmpdir
+# see https://github.com/tkem/cachetools/issues/146
+_get_cache = TTLCache(maxsize=512, ttl=60 * 5)
+
+
+@cached(_get_cache, key=_cache_key)
 def get(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None):
     args = _get_wheel_args(index_url, env, extra_index_url) + [dist_name]
     scratch_dir = tempfile.mkdtemp(dir=tmpdir)
@@ -177,8 +193,8 @@ def get(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None):
         # example, which uses poetry and doesn't publish any python37 wheel to PyPI.
         # However, the dist itself should still be the first one downloaded.
     link = links[0]
-    with working_directory(scratch_dir):
-        [whl] = [os.path.abspath(x) for x in os.listdir(".") if x.endswith(".whl")]
+    whls = glob(os.path.join(os.path.abspath(scratch_dir), "*.whl"))
+    [whl] = whls
     url, _sep, checksum = link.partition("#")
     url = url.replace("/%2Bf/", "/+f/")  # some versions of pip did not unquote this fragment in the log
     if not checksum.startswith("md5=") and not checksum.startswith("sha256="):

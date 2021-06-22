@@ -18,7 +18,7 @@ def test_generated_metadata_from_dist_name(make_dist):
     expected_metadata = {
         "author": "default author",
         "author_email": "default@example.org",
-        "description": "default long text for PyPI landing page \U0001f4a9\n\n\n",
+        "description": "default long text for PyPI landing page \U0001f4a9\n\n",
         "home_page": "https://www.example.org/default",
         "license": "MIT",
         "metadata_version": "2.1",
@@ -36,7 +36,7 @@ def test_generated_metadata_from_dist_path(make_dist):
     expected_metadata = {
         "author": "default author",
         "author_email": "default@example.org",
-        "description": "default long text for PyPI landing page \U0001f4a9\n\n\n",
+        "description": "default long text for PyPI landing page \U0001f4a9\n\n",
         "home_page": "https://www.example.org/default",
         "license": "MIT",
         "metadata_version": "2.1",
