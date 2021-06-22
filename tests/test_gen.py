@@ -18,7 +18,7 @@ def test_generated_metadata_from_dist_name(make_dist):
     expected_metadata = {
         "author": "default author",
         "author_email": "default@example.org",
-        "description": "default long text for PyPI landing page \U0001f4a9\n\n",
+        "description": "default long text for PyPI landing page \U0001f4a9",
         "home_page": "https://www.example.org/default",
         "license": "MIT",
         "metadata_version": "2.1",
@@ -27,6 +27,9 @@ def test_generated_metadata_from_dist_name(make_dist):
         "summary": "default text for metadata summary",
         "version": "0.1.2",
     }
+    # different versions of setuptools can put a different number of newlines at the
+    # end of the long description metadata
+    assert jdist.metadata.pop("description").rstrip() == expected_metadata.pop("description")
     assert jdist.metadata == expected_metadata
 
 
@@ -36,7 +39,7 @@ def test_generated_metadata_from_dist_path(make_dist):
     expected_metadata = {
         "author": "default author",
         "author_email": "default@example.org",
-        "description": "default long text for PyPI landing page \U0001f4a9\n\n",
+        "description": "default long text for PyPI landing page \U0001f4a9",
         "home_page": "https://www.example.org/default",
         "license": "MIT",
         "metadata_version": "2.1",
@@ -45,6 +48,7 @@ def test_generated_metadata_from_dist_path(make_dist):
         "summary": "default text for metadata summary",
         "version": "0.1.2",
     }
+    assert jdist.metadata.pop("description").rstrip() == expected_metadata.pop("description")
     assert jdist.metadata == expected_metadata
 
 
