@@ -25,7 +25,7 @@ jobs:
         run: |
           set -xe
           python -VV
-          python -m pip -r requirements-dev.txt
+          python -m pip install -r requirements-dev.txt
 
       - name: "Run tests for ${{ matrix.python-version }}"
         run: python -m pytest
