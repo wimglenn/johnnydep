@@ -18,7 +18,7 @@ import pkg_resources
 from cachetools import cached
 from cachetools.func import ttl_cache
 from cachetools.keys import hashkey
-from cachetools.ttl import TTLCache
+from cachetools import TTLCache
 from structlog import get_logger
 
 from johnnydep.compat import urlparse, urlretrieve
