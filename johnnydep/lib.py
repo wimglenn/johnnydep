@@ -8,6 +8,7 @@ import shutil
 import tempfile
 from collections import OrderedDict
 from collections import defaultdict
+from subprocess import CalledProcessError
 from zipfile import ZipFile
 
 import anytree
@@ -39,14 +40,35 @@ class OrderedDefaultListDict(OrderedDict):
         return value
 
 
-class JohnnyDist(anytree.NodeMixin):
-    def __init__(self, req_string, parent=None, index_url=None, env=None, extra_index_url=None):
+class JohnnyBase(anytree.NodeMixin):
+    def __init__(self, req, parent=None):
+        self.req = req
+        self.parent = parent
+
+
+class JohnnyDistFailed(JohnnyBase):
+    def __init__(self, req, parent=None, error=None):
+        try:
+            output = error.decode("utf-8")
+            lines = output.split('\n')
+            self.error = lines[-3]
+        except (ValueError, AttributeError):
+            self.error = "Exception: Unable to parse exception message"
+        super(JohnnyDistFailed, self).__init__(req + " (FAILED)", parent)
+
+    @property
+    def summary(self):
+        return self.error or ""
+
+
+class JohnnyDist(JohnnyBase):
+    def __init__(self, req_string, parent=None, index_url=None, env=None, extra_index_url=None, ignore_errors=False):
         log = self.log = logger.bind(dist=req_string)
         log.info("init johnnydist", parent=parent and str(parent.req))
-        self.parent = parent
         self.index_url = index_url
         self.env = env
         self.extra_index_url = extra_index_url
+        self.ignore_errors = ignore_errors
         self._recursed = False
 
         if req_string.endswith(".whl") and os.path.isfile(req_string):
@@ -75,6 +97,7 @@ class JohnnyDist(anytree.NodeMixin):
             self.required_by = []
         else:
             self.required_by = [str(parent.req)]
+        super(JohnnyDist, self).__init__(req_string, parent)
 
     @property
     def requires(self):
@@ -111,13 +134,22 @@ class JohnnyDist(anytree.NodeMixin):
         if not self._recursed:
             self.log.debug("populating dep tree")
             for dep in self.requires:
-                JohnnyDist(
-                    req_string=dep,
-                    parent=self,
-                    index_url=self.index_url,
-                    env=self.env,
-                    extra_index_url=self.extra_index_url,
-                )
+                try:
+                    JohnnyDist(
+                        req_string=dep,
+                        parent=self,
+                        index_url=self.index_url,
+                        env=self.env,
+                        extra_index_url=self.extra_index_url,
+                    )
+                except CalledProcessError as e:
+                    if self.ignore_errors:
+                        JohnnyDistFailed(req=dep,
+                                         parent=self,
+                                         error=e.output)
+                        self.log.error("Dependency failed: %s.\n", dep)
+                    else:
+                        raise e
             self._recursed = True
         return super(JohnnyDist, self).children
 
