@@ -141,6 +141,7 @@ class JohnnyDist(JohnnyBase):
                         index_url=self.index_url,
                         env=self.env,
                         extra_index_url=self.extra_index_url,
+                        ignore_errors=self.ignore_errors
                     )
                 except CalledProcessError as e:
                     if self.ignore_errors:
