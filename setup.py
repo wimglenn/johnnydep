@@ -33,4 +33,5 @@ setup(
             "pipper = johnnydep.pipper:main",
         ]
     },
+    options={"bdist_wheel": {"universal": True}},
 )
