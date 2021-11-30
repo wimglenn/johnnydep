@@ -2,6 +2,7 @@
 pytest
 pytest-mock
 pytest-cov
+pytest-raisin
 pytest-socket
 coverage
 wimpy==0.3  # just something we can pin

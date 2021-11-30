@@ -5,7 +5,6 @@ import os
 
 import pytest
 
-from johnnydep.compat import quote
 from johnnydep.lib import JohnnyDist
 
 
@@ -65,7 +64,8 @@ def test_build_from_sdist(add_to_index):
     assert dist.extras_available == []
     assert dist.extras_requested == []
     assert dist.project_name == "copyingmock"
-    assert dist.download_link == "file://{}".format(quote(sdist_fname))
+    assert dist.download_link.startswith("file://")
+    assert dist.download_link.endswith("copyingmock-0.2.tar.gz")
     assert dist.checksum == "md5=9aa6ba13542d25e527fe358d53cdaf3b"
 
 

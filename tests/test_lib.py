@@ -1,6 +1,7 @@
 # coding: utf-8
 from __future__ import unicode_literals
 
+import os
 from subprocess import CalledProcessError
 from textwrap import dedent
 
@@ -15,7 +16,7 @@ def test_version_nonexisting(make_dist):
     make_dist()
     with pytest.raises(CalledProcessError) as cm:
         JohnnyDist("jdtest==0.404")
-    msg = "DistributionNotFound: No matching distribution found for jdtest==0.404\n"
+    msg = "DistributionNotFound: No matching distribution found for jdtest==0.404" + os.linesep
     txt = cm.value.output.decode()
     assert msg in txt
 
@@ -77,7 +78,7 @@ def test_version_latest_in_spec_prerelease_out_of_spec(make_dist):
     make_dist(version="0.2a0")
     with pytest.raises(CalledProcessError) as cm:
         JohnnyDist("jdtest>0.1")
-    msg = "DistributionNotFound: No matching distribution found for jdtest>0.1\n"
+    msg = "DistributionNotFound: No matching distribution found for jdtest>0.1" + os.linesep
     txt = cm.value.output.decode()
     assert msg in txt
 
@@ -104,7 +105,7 @@ def test_version_in_spec_not_avail(make_dist):
     make_dist(version="3.4.5")
     with pytest.raises(CalledProcessError) as cm:
         JohnnyDist("jdtest>4")
-    msg = "DistributionNotFound: No matching distribution found for jdtest>4\n"
+    msg = "DistributionNotFound: No matching distribution found for jdtest>4" + os.linesep
     txt = cm.value.output.decode()
     assert msg in txt
 
@@ -424,23 +425,23 @@ def test_resolve_unresolvable(make_dist):
     assert next(gen) is dist
     with pytest.raises(CalledProcessError) as cm:
         next(gen)
-    msg = "DistributionNotFound: No matching distribution found for dist2<=0.1,>0.2\n"
+    msg = "DistributionNotFound: No matching distribution found for dist2<=0.1,>0.2" + os.linesep
     txt = cm.value.output.decode()
     assert msg in txt
 
 
 def test_pprint(make_dist, mocker):
-    mocker.patch("johnnydep.lib.id", return_value=3735928559, create=True)
+    mocker.patch("johnnydep.lib.id", return_value=51966, create=True)
     mock_printer = mocker.MagicMock()
     make_dist()
     jdist = JohnnyDist("jdtest")
     jdist._repr_pretty_(mock_printer, cycle=False)
-    pretty = "<JohnnyDist jdtest at 0xdeadbeef>"
+    pretty = "<JohnnyDist jdtest at 0xcafe>"
     mock_printer.text.assert_called_once_with(pretty)
     mock_printer.text.reset_mock()
     jdist = JohnnyDist("jdtest[a]~=0.1.2")
     jdist._repr_pretty_(mock_printer, cycle=False)
-    pretty = "<JohnnyDist jdtest~=0.1.2[a] at 0xdeadbeef>"
+    pretty = "<JohnnyDist jdtest~=0.1.2[a] at 0xcafe>"
     mock_printer.text.assert_called_once_with(pretty)
     mock_printer.text.reset_mock()
     jdist._repr_pretty_(mock_printer, cycle=True)
@@ -504,3 +505,10 @@ def test_license_parsing_classifiers(make_dist):
 def test_license_parsing_unknown(make_dist):
     make_dist(license="")
     assert JohnnyDist("jdtest").license == ""
+
+
+def test_metadata_cant_be_extracted(make_dist, mocker):
+    make_dist()
+    mocker.patch("pkginfo.get_metadata", return_value=None)
+    with pytest.raises(Exception("failed to get metadata")):
+        JohnnyDist("jdtest")

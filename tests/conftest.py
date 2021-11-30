@@ -7,7 +7,6 @@ import subprocess
 
 import pytest
 from setuptools import setup
-from wimpy import strip_prefix
 from wimpy import working_directory
 
 from johnnydep import lib
@@ -133,9 +132,9 @@ def fake_subprocess(mocker, add_to_index):
         lines = output.decode().splitlines()
         for line in lines:
             line = line.strip()
-            if line.startswith("Saved ./"):
-                fname = strip_prefix(line, "Saved ./")
-                inject = "\n  Downloading from URL http://fakeindex/{}\n".format(fname)
+            if line.startswith("Saved "):
+                fname = line.split("/")[-1].split("\\")[-1]
+                inject = "{0}  Downloading from URL http://fakeindex/{1}{0}".format(os.linesep, fname)
                 output += inject.encode()
                 break
         return output

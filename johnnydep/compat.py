@@ -1,12 +1,11 @@
 import oyaml
 
 try:
-    from urllib.parse import quote, urlparse
+    from urllib.parse import urlparse
     from urllib import request as urllib2
 except ImportError:
     # Python 2
     import urllib2
-    from urllib2 import quote
     from urlparse import urlparse
 
 
