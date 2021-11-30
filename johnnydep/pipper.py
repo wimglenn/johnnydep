@@ -200,7 +200,7 @@ def get(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None):
     if not checksum.startswith("md5=") and not checksum.startswith("sha256="):
         # PyPI gives you the checksum in url fragment, as a convenience. But not all indices are so kind.
         algorithm = "md5"
-        if os.path.basename(whl) == url.rsplit("/")[-1]:
+        if os.path.basename(whl).lower() == url.rsplit("/", 1)[-1].lower():
             target = whl
         else:
             scratch_file = os.path.join(scratch_dir, os.path.basename(url))

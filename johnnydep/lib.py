@@ -357,7 +357,7 @@ def _discover_import_names(whl_file):
             public_names = []
             for name in namelist:
                 if ".dist-info/" not in name and ".egg-info/" not in name:
-                    parts = name.split(os.sep)
+                    parts = name.split("/")
                     if len(parts) == 2 and parts[1] == "__init__.py":
                         # found a top-level package
                         public_names.append(parts[0])
