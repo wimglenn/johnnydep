@@ -41,20 +41,22 @@ class OrderedDefaultListDict(OrderedDict):
 
 
 class JohnnyBase(anytree.NodeMixin):
-    def __init__(self, req, parent=None):
-        self.req = req
+    def __init__(self, parent=None):
         self.parent = parent
 
 
 class JohnnyDistFailed(JohnnyBase):
-    def __init__(self, req, parent=None, error=None):
+    def __init__(self, req_string, parent=None, error=None):
+        self.req = pkg_resources.Requirement.parse(req_string)
+        self.name = canonicalize_name(self.req.name)
+        self.specifier = str(self.req.specifier)
         try:
             output = error.decode("utf-8")
             lines = output.split('\n')
             self.error = lines[-3]
         except (ValueError, AttributeError):
             self.error = "Exception: Unable to parse exception message"
-        super(JohnnyDistFailed, self).__init__(req + " (FAILED)", parent)
+        super(JohnnyDistFailed, self).__init__(parent)
 
     @property
     def summary(self):
@@ -97,7 +99,7 @@ class JohnnyDist(JohnnyBase):
             self.required_by = []
         else:
             self.required_by = [str(parent.req)]
-        super(JohnnyDist, self).__init__(req_string, parent)
+        super(JohnnyDist, self).__init__(parent)
 
     @property
     def requires(self):
