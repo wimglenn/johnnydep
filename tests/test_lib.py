@@ -510,5 +510,6 @@ def test_license_parsing_unknown(make_dist):
 def test_metadata_cant_be_extracted(make_dist, mocker):
     make_dist()
     mocker.patch("pkginfo.get_metadata", return_value=None)
-    with pytest.raises(Exception("failed to get metadata")):
+    with pytest.raises(Exception) as ex:
         JohnnyDist("jdtest")
+    assert str(ex.value) == "failed to get metadata"
