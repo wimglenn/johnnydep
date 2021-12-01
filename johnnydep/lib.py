@@ -48,6 +48,7 @@ class JohnnyBase(anytree.NodeMixin):
 class JohnnyDistFailed(JohnnyBase):
     def __init__(self, req_string, parent=None, error=None):
         self.req = pkg_resources.Requirement.parse(req_string)
+        self.req.name = "(Failed) " + self.req.name
         self.name = canonicalize_name(self.req.name)
         self.specifier = str(self.req.specifier)
         try:
@@ -147,7 +148,7 @@ class JohnnyDist(JohnnyBase):
                     )
                 except CalledProcessError as e:
                     if self.ignore_errors:
-                        JohnnyDistFailed(req=dep,
+                        JohnnyDistFailed(req_string=dep,
                                          parent=self,
                                          error=e.output)
                         self.log.error("Dependency failed: %s.\n", dep)
