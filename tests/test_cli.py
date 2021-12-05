@@ -174,22 +174,5 @@ def test_ignore_errors_on_stdout(mocker, capsys, make_dist):
     main()
     out, err = capsys.readouterr()
     assert err == ""
-    assert out in [
-        dedent("""\
-        name                      summary
-        ------------------------  ---------------------------------------------------------------------------------------------
-        distA                     default text for metadata summary
-        ├── (Failed) distB1>=1.0  pip._internal.exceptions.DistributionNotFound: No matching distribution found for distB1>=1.0
-        └── distB2                default text for metadata summary
-            └── distC[y]!=0.2     default text for metadata summary
-        """),
-        # Python2 DistributionNotFound
-        dedent("""\
-    name                      summary
-    ------------------------  ---------------------------------------------------------------------------------------------
-    distA                     default text for metadata summary
-    ├── (Failed) distB1>=1.0  DistributionNotFound: No matching distribution found for distB1>=1.0
-    └── distB2                default text for metadata summary
-        └── distC[y]!=0.2     default text for metadata summary
-    """)]
+    assert "DistributionNotFound: No matching distribution found for distB1>=1.0" in out
 
