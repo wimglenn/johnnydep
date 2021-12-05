@@ -151,7 +151,8 @@ class JohnnyDist(JohnnyBase):
                         JohnnyDistFailed(req_string=dep,
                                          parent=self,
                                          error=e.output)
-                        self.log.error("Dependency failed: %s.\n", dep)
+                        err_msg = "Dependency failed: %s.\n" % dep
+                        self.log.error(err_msg)
                     else:
                         raise e
             self._recursed = True

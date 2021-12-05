@@ -7,7 +7,7 @@ from textwrap import dedent
 
 import pytest
 
-from johnnydep.lib import JohnnyDist
+from johnnydep.lib import JohnnyDist, JohnnyDistFailed
 from johnnydep.lib import flatten_deps
 
 
@@ -19,6 +19,22 @@ def test_version_nonexisting(make_dist):
     msg = "DistributionNotFound: No matching distribution found for jdtest==0.404" + os.linesep
     txt = cm.value.output.decode()
     assert msg in txt
+
+
+def test_initialize_failed_johnny(make_dist):
+    make_dist()
+    failed_node = JohnnyDistFailed("jdtest==0.404")
+    assert failed_node.req.project_name == "jdtest"
+    assert failed_node.specifier == "==0.404"
+    assert failed_node.name == "(failed) jdtest"
+    assert failed_node.error == "Exception: Unable to parse exception message"
+
+
+def test_ignore_errors(make_dist):
+    make_dist(name="distA", install_requires=["distB1>=1.0"], version="0.1")
+    dist = JohnnyDist("distA", ignore_errors=True)
+    assert len(dist.children) == 1
+    assert dist.children[0].name == "(failed) distb1"
 
 
 def test_import_names_empty(make_dist):
