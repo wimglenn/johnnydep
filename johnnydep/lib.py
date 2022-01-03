@@ -40,13 +40,15 @@ class OrderedDefaultListDict(OrderedDict):
 
 
 class JohnnyDist(anytree.NodeMixin):
-    def __init__(self, req_string, parent=None, index_url=None, env=None, extra_index_url=None):
+    def __init__(self, req_string, parent=None, index_url=None, env=None, extra_index_url=None, ignore_errors=False):
         log = self.log = logger.bind(dist=req_string)
         log.info("init johnnydist", parent=parent and str(parent.req))
         self.parent = parent
         self.index_url = index_url
         self.env = env
         self.extra_index_url = extra_index_url
+        self.ignore_errors = ignore_errors
+        self.failed = False
         self._recursed = False
 
         if req_string.endswith(".whl") and os.path.isfile(req_string):
@@ -66,7 +68,13 @@ class JohnnyDist(anytree.NodeMixin):
                 index_url=index_url,
                 env=env,
                 extra_index_url=extra_index_url,
+                ignore_errors=self.ignore_errors
             )
+        error = self.metadata.get("error")
+        if error:
+            self.failed = True
+            self.error = error.split('\n')[-3]
+            log.warning("init johnnydist", error=self.error)
 
         self.extras_requested = sorted(self.req.extras)
         if parent is None:
@@ -117,6 +125,7 @@ class JohnnyDist(anytree.NodeMixin):
                     index_url=self.index_url,
                     env=self.env,
                     extra_index_url=self.extra_index_url,
+                    ignore_errors=self.ignore_errors,
                 )
             self._recursed = True
         return super(JohnnyDist, self).children
@@ -135,13 +144,15 @@ class JohnnyDist(anytree.NodeMixin):
 
     @property
     def summary(self):
-        text = self.metadata.get("summary") or ""
+        text = self.metadata.get("summary", "")
         result = text.lstrip("#").strip()
+        if not result and self.failed:
+            return self.error
         return result
 
     @property
     def license(self):
-        result = self.metadata.get("license") or ""
+        result = self.metadata.get("license", "")
         # sometimes people just put the license in a trove classifier instead
         # for a list of valid classifiers:
         #   requests.get('https://pypi.python.org/pypi', params={':action': 'list_classifiers'}).text.splitlines()
@@ -221,6 +232,7 @@ class JohnnyDist(anytree.NodeMixin):
             index_url=self.index_url,
             env=self.env,
             extra_index_url=self.extra_index_url,
+            ignore_errors=self.ignore_errors,
         )
 
     @property
@@ -278,6 +290,8 @@ def gen_table(johnnydist, extra_cols=()):
     for pre, _fill, node in anytree.RenderTree(johnnydist):
         row = OrderedDict()
         name = str(node.req)
+        if node.failed:
+            name += " (FAILED)"
         if "specifier" in extra_cols:
             name = wimpy.strip_suffix(name, str(node.specifier))
         row["name"] = pre + name
@@ -395,12 +409,17 @@ def _get_info(dist_name, index_url=None, env=None, extra_index_url=None):
             env=env,
             extra_index_url=extra_index_url,
             tmpdir=tmpdir,
+            ignore_errors=ignore_errors,
         )
-        dist_path = data["path"]
+        dist_path = data.get("path")
         # extract any info we may need from downloaded dist right now, so the
         # downloaded file can be cleaned up immediately
-        import_names = _discover_import_names(dist_path)
-        metadata = _extract_metadata(dist_path)
+        if dist_path:
+            import_names = _discover_import_names(dist_path)
+            metadata = _extract_metadata(dist_path)
+        else:
+            import_names = dist_name
+            metadata = data
     finally:
         log.debug("removing scratch", tmpdir=tmpdir)
         shutil.rmtree(tmpdir, ignore_errors=True)

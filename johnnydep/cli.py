@@ -42,6 +42,8 @@ def main():
     parser.add_argument("req", help="The project name or requirement specifier")
     parser.add_argument("--index-url", "-i")
     parser.add_argument("--extra-index-url")
+    parser.add_argument("--ignore-errors", action='store_true',
+                        help="If an error occurs while resolving a dependency, continue resolving the remaining items.")
     parser.add_argument(
         "--output-format",
         "-o",
@@ -79,5 +81,6 @@ def main():
         index_url=args.index_url,
         env=args.env,
         extra_index_url=args.extra_index_url,
+        ignore_errors=args.ignore_errors
     )
     print(dist.serialise(fields=args.fields, format=args.output_format, recurse=args.recurse))

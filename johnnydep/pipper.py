@@ -135,7 +135,7 @@ _get_cache = TTLCache(maxsize=512, ttl=60 * 5)
 
 
 @cached(_get_cache, key=_cache_key)
-def get(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None):
+def get(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None, ignore_errors=None):
     args = _get_wheel_args(index_url, env, extra_index_url) + [dist_name]
     scratch_dir = tempfile.mkdtemp(dir=tmpdir)
     log.debug("wheeling and dealing", scratch_dir=os.path.abspath(scratch_dir), args=" ".join(args))
@@ -143,8 +143,11 @@ def get(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None):
         out = subprocess.check_output(args, stderr=subprocess.STDOUT, cwd=scratch_dir)
     except subprocess.CalledProcessError as err:
         output = getattr(err, "output", b"").decode("utf-8")
-        log.warning(output)
-        raise
+        if ignore_errors:
+            return {"error": out}
+        else:
+            log.warning(output)
+            raise
     log.debug("wheel command completed ok", dist_name=dist_name)
     out = out.decode("utf-8")
     links = []
@@ -216,6 +219,8 @@ def main():
     parser.add_argument("dist_name")
     parser.add_argument("--index-url", "-i")
     parser.add_argument("--extra-index-url")
+    parser.add_argument("--ignore-errors", action='store_true',
+                        help="If an error occurs while resolving a dependency, continue resolving the remaining items.")
     parser.add_argument("--for-python", "-p", dest="env", type=python_interpreter)
     parser.add_argument("--verbose", "-v", default=1, type=int, choices=range(3))
     debug = {
@@ -229,7 +234,8 @@ def main():
     args = parser.parse_args()
     configure_logging(verbosity=args.verbose)
     log.debug("runtime info", **debug)
-    result = get(dist_name=args.dist_name, index_url=args.index_url, env=args.env, extra_index_url=args.extra_index_url)
+    result = get(dist_name=args.dist_name, index_url=args.index_url, env=args.env, extra_index_url=args.extra_index_url,
+                 ignore_errors=args.ignore_errors)
     text = json.dumps(result, indent=2, sort_keys=True, separators=(",", ": "))
     print(text)
 
