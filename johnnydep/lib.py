@@ -398,7 +398,7 @@ def _extract_metadata(whl_file):
 
 
 @ttl_cache(maxsize=512, ttl=60 * 5)
-def _get_info(dist_name, index_url=None, env=None, extra_index_url=None):
+def _get_info(dist_name, index_url=None, env=None, extra_index_url=None, ignore_errors=None):
     log = logger.bind(dist_name=dist_name)
     tmpdir = tempfile.mkdtemp()
     log.debug("created scratch", tmpdir=tmpdir)
