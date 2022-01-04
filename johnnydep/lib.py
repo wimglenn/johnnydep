@@ -68,7 +68,7 @@ class JohnnyDist(anytree.NodeMixin):
                 index_url=index_url,
                 env=env,
                 extra_index_url=extra_index_url,
-                ignore_errors=self.ignore_errors
+                ignore_errors=self.ignore_errors,
             )
         error = self.metadata.get("error")
         if error:

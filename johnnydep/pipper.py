@@ -125,8 +125,8 @@ def get_versions(dist_name, index_url=None, env=None, extra_index_url=None):
     return versions
 
 
-def _cache_key(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None):
-    return hashkey(dist_name, index_url, env, extra_index_url)
+def _cache_key(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None, ignore_errors=None):
+    return hashkey(dist_name, index_url, env, extra_index_url, tmpdir, ignore_errors)
 
 
 # this decoration is a bit more complicated in order to avoid keying of tmpdir
