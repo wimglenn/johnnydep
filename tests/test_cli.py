@@ -161,3 +161,17 @@ def test_all_fields_toml_out(mocker, capsys, make_dist):
             checksum=checksum
         )
     )
+
+
+def test_ignore_errors_on_stdout(mocker, capsys, make_dist):
+    make_dist(name="distA", install_requires=["distB1>=1.0", "distB2"], version="0.1")
+    make_dist(name="distB2", install_requires=["distC[y]!=0.2"], version="0.1")
+    make_dist(name="distC", version="0.3")
+
+    mocker.patch(
+        "sys.argv", "johnnydep distA --ignore-errors".split()
+    )
+    main()
+    out, err = capsys.readouterr()
+    assert err == ""
+    assert "DistributionNotFound: No matching distribution found for distB1>=1.0" in out

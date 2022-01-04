@@ -144,7 +144,7 @@ def get(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None, 
     except subprocess.CalledProcessError as err:
         output = getattr(err, "output", b"").decode("utf-8")
         if ignore_errors:
-            return {"error": out}
+            return {"error": output}
         else:
             log.warning(output)
             raise
