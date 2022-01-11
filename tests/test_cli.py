@@ -175,3 +175,28 @@ def test_ignore_errors_on_stdout(mocker, capsys, make_dist):
     out, err = capsys.readouterr()
     assert err == ""
     assert "DistributionNotFound: No matching distribution found for distB1>=1.0" in out
+
+
+def test_fmt_ignore_errors_on_stdout(mocker, capsys, make_dist):
+    make_dist(name="distA", install_requires=["distB1>=0.1", "distB2>=0.1"], version="0.1")
+    make_dist(name="distB1", install_requires=["distC1>=0.1", "distC2>=0.1"], version="0.1")
+    make_dist(name="distC2", version="0.1")
+    make_dist(name="distB2", version="0.1")
+    #dist = JohnnyDist("distA", ignore_errors=True)
+
+    mocker.patch(
+        "sys.argv", "johnnydep distA --ignore-errors --fields name".split()
+    )
+    main()
+    out, err = capsys.readouterr()
+    assert err == ""
+    assert out == dedent(
+        """\
+        name
+        ----------------------------
+        distA
+        ├── distB1>=0.1
+        │   ├── distC1>=0.1 (FAILED)
+        │   └── distC2>=0.1
+        └── distB2>=0.1
+    """)
