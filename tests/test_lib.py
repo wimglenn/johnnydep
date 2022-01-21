@@ -475,10 +475,10 @@ def test_get_caching(make_dist, mocker):
             └── c  leaf node""")
     assert downloader.call_count == 4
     assert downloader.call_args_list == [
-        mocker.call("a", env=None, extra_index_url=None, index_url=None, tmpdir=mocker.ANY, ignore_errors=False),
-        mocker.call("b1", env=None, extra_index_url=None, index_url=None, tmpdir=mocker.ANY, ignore_errors=False),
-        mocker.call("b2", env=None, extra_index_url=None, index_url=None, tmpdir=mocker.ANY, ignore_errors=False),
-        mocker.call("c", env=None, extra_index_url=None, index_url=None, tmpdir=mocker.ANY, ignore_errors=False),
+        mocker.call("a", env=None, extra_index_url=None, index_url=None, tmpdir=mocker.ANY),
+        mocker.call("b1", env=None, extra_index_url=None, index_url=None, tmpdir=mocker.ANY),
+        mocker.call("b2", env=None, extra_index_url=None, index_url=None, tmpdir=mocker.ANY),
+        mocker.call("c", env=None, extra_index_url=None, index_url=None, tmpdir=mocker.ANY),
     ]
 
 

@@ -5,6 +5,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import tempfile
 from collections import OrderedDict
 from collections import defaultdict
@@ -63,18 +64,25 @@ class JohnnyDist(anytree.NodeMixin):
             self.name = canonicalize_name(self.req.name)
             self.specifier = str(self.req.specifier)
             log.debug("fetching best wheel")
-            self.import_names, self.metadata = _get_info(
-                dist_name=req_string,
-                index_url=index_url,
-                env=env,
-                extra_index_url=extra_index_url,
-                ignore_errors=self.ignore_errors,
-            )
-        error = self.metadata.get("error")
-        if error:
-            self.failed = True
-            self.error = error.split('\n')[-3]
-            log.warning("init johnnydist", error=self.error)
+            try:
+                self.import_names, self.metadata = _get_info(
+                    dist_name=req_string,
+                    index_url=index_url,
+                    env=env,
+                    extra_index_url=extra_index_url
+                )
+            except subprocess.CalledProcessError as err:
+                if not self.ignore_errors:
+                    raise
+                self.import_names = None
+                self.metadata = {}
+                output = getattr(err, "output", b"").decode("utf-8")
+                self.failed = True
+                try:
+                    trace_index = output.rindex("Traceback (most recent call last):")
+                    self.error = output[trace_index:]
+                except ValueError:
+                    self.error = output
 
         self.extras_requested = sorted(self.req.extras)
         if parent is None:
@@ -146,8 +154,6 @@ class JohnnyDist(anytree.NodeMixin):
     def summary(self):
         text = self.metadata.get("summary", "")
         result = text.lstrip("#").strip()
-        if not result and self.failed:
-            return self.error
         return result
 
     @property
@@ -231,8 +237,7 @@ class JohnnyDist(anytree.NodeMixin):
             self.pinned,
             index_url=self.index_url,
             env=self.env,
-            extra_index_url=self.extra_index_url,
-            ignore_errors=self.ignore_errors,
+            extra_index_url=self.extra_index_url
         )
 
     @property
@@ -398,7 +403,7 @@ def _extract_metadata(whl_file):
 
 
 @ttl_cache(maxsize=512, ttl=60 * 5)
-def _get_info(dist_name, index_url=None, env=None, extra_index_url=None, ignore_errors=None):
+def _get_info(dist_name, index_url=None, env=None, extra_index_url=None):
     log = logger.bind(dist_name=dist_name)
     tmpdir = tempfile.mkdtemp()
     log.debug("created scratch", tmpdir=tmpdir)
@@ -408,18 +413,13 @@ def _get_info(dist_name, index_url=None, env=None, extra_index_url=None, ignore_
             index_url=index_url,
             env=env,
             extra_index_url=extra_index_url,
-            tmpdir=tmpdir,
-            ignore_errors=ignore_errors,
+            tmpdir=tmpdir
         )
-        dist_path = data.get("path")
+        dist_path = data["path"]
         # extract any info we may need from downloaded dist right now, so the
         # downloaded file can be cleaned up immediately
-        if dist_path:
-            import_names = _discover_import_names(dist_path)
-            metadata = _extract_metadata(dist_path)
-        else:
-            import_names = dist_name
-            metadata = data
+        import_names = _discover_import_names(dist_path)
+        metadata = _extract_metadata(dist_path)
     finally:
         log.debug("removing scratch", tmpdir=tmpdir)
         shutil.rmtree(tmpdir, ignore_errors=True)
