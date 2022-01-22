@@ -3,6 +3,8 @@ from __future__ import unicode_literals
 
 from textwrap import dedent
 
+import pytest
+
 from johnnydep.cli import main
 
 
@@ -185,3 +187,24 @@ def test_fmt_ignore_errors_on_stdout(mocker, capsys, make_dist):
         │   └── distC2>=0.1
         └── distB2>=0.1
     """)
+
+
+@pytest.mark.noautofixt
+def test_ignore_errors_build_error(mocker, capsys):
+    import os
+    os.environ["JDT3_FAIL"] = "1"
+    mocker.patch(
+        "sys.argv", "johnnydep jdt1 --index-url=https://test.pypi.org/simple --ignore-errors --fields name".split()
+    )
+    main()
+    out, err = capsys.readouterr()
+    assert out == dedent(
+        """\
+        name
+        ---------------------
+        jdt1
+        ├── jdt2
+        │   ├── jdt3 (FAILED)
+        │   └── jdt4
+        └── jdt5
+        """)

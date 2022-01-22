@@ -233,20 +233,26 @@ class JohnnyDist(anytree.NodeMixin):
 
     @cached_property
     def _best(self):
-        return pipper.get(
-            self.pinned,
-            index_url=self.index_url,
-            env=self.env,
-            extra_index_url=self.extra_index_url
-        )
+        try:
+            return pipper.get(
+                self.pinned,
+                index_url=self.index_url,
+                env=self.env,
+                extra_index_url=self.extra_index_url
+            )
+        except subprocess.CalledProcessError:
+            if not self.ignore_errors:
+                raise
+
+
 
     @property
     def download_link(self):
-        return self._best["url"]
+        return self._best.get("url")
 
     @property
     def checksum(self):
-        return self._best["checksum"]
+        return self._best.get("checksum")
 
     def serialise(self, fields=("name", "summary"), recurse=True, format=None):
         if format == "pinned":

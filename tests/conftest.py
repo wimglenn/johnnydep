@@ -104,7 +104,9 @@ def make_dist(tmp_path, add_to_index, capsys, mocker):
 
 
 @pytest.fixture(autouse=True)
-def fake_subprocess(mocker, add_to_index):
+def fake_subprocess(request, mocker, add_to_index):
+    if "noautofixt" in request.keywords:
+        return
 
     index_data = add_to_index.index_data
     subprocess_check_output = subprocess.check_output
