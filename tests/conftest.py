@@ -11,8 +11,12 @@ import pytest
 from setuptools import setup
 from wimpy import working_directory
 
+import johnnydep
 from johnnydep import lib
 from johnnydep import pipper
+
+
+original_check_output = johnnydep.pipper.subprocess.check_output
 
 
 @pytest.fixture(autouse=True)
@@ -105,10 +109,13 @@ def make_dist(tmp_path, add_to_index, capsys, mocker):
     return f
 
 
+@pytest.fixture
+def original_subprocess(mocker):
+    mocker.patch("johnnydep.pipper.subprocess.check_output", original_check_output)
+
+
 @pytest.fixture(autouse=True)
-def fake_subprocess(request, mocker, add_to_index):
-    if "noautofixt" in request.keywords:
-        return
+def fake_subprocess(mocker, add_to_index):
 
     index_data = add_to_index.index_data
     subprocess_check_output = subprocess.check_output

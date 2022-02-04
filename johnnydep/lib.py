@@ -49,7 +49,7 @@ class JohnnyDist(anytree.NodeMixin):
         self.env = env
         self.extra_index_url = extra_index_url
         self.ignore_errors = ignore_errors
-        self.failed = False
+        self.error = None
         self._recursed = False
 
         if req_string.endswith(".whl") and os.path.isfile(req_string):
@@ -77,7 +77,6 @@ class JohnnyDist(anytree.NodeMixin):
                 self.import_names = None
                 self.metadata = {}
                 output = getattr(err, "output", b"").decode("utf-8")
-                self.failed = True
                 try:
                     trace_index = output.rindex("Traceback (most recent call last):")
                     self.error = output[trace_index:]
@@ -152,13 +151,13 @@ class JohnnyDist(anytree.NodeMixin):
 
     @property
     def summary(self):
-        text = self.metadata.get("summary", "")
+        text = self.metadata.get("summary") or ""
         result = text.lstrip("#").strip()
         return result
 
     @property
     def license(self):
-        result = self.metadata.get("license", "")
+        result = self.metadata.get("license") or ""
         # sometimes people just put the license in a trove classifier instead
         # for a list of valid classifiers:
         #   requests.get('https://pypi.python.org/pypi', params={':action': 'list_classifiers'}).text.splitlines()
@@ -233,18 +232,13 @@ class JohnnyDist(anytree.NodeMixin):
 
     @cached_property
     def _best(self):
-        try:
-            return pipper.get(
-                self.pinned,
-                index_url=self.index_url,
-                env=self.env,
-                extra_index_url=self.extra_index_url
-            )
-        except subprocess.CalledProcessError:
-            if not self.ignore_errors:
-                raise
-
-
+        return pipper.get(
+            self.pinned,
+            index_url=self.index_url,
+            env=self.env,
+            extra_index_url=self.extra_index_url,
+            ignore_errors=True
+        )
 
     @property
     def download_link(self):
@@ -301,7 +295,7 @@ def gen_table(johnnydist, extra_cols=()):
     for pre, _fill, node in anytree.RenderTree(johnnydist):
         row = OrderedDict()
         name = str(node.req)
-        if node.failed:
+        if node.error:
             name += " (FAILED)"
         if "specifier" in extra_cols:
             name = wimpy.strip_suffix(name, str(node.specifier))

@@ -189,12 +189,10 @@ def test_fmt_ignore_errors_on_stdout(mocker, capsys, make_dist):
     """)
 
 
-@pytest.mark.noautofixt
-def test_ignore_errors_build_error(mocker, capsys, fake_pip):
-    import os
-    os.environ["JDT3_FAIL"] = "1"
+def test_ignore_errors_build_error(mocker, capsys, fake_pip, monkeypatch, original_subprocess):
+    monkeypatch.setenv("JDT3_FAIL", "1")
     mocker.patch(
-        "sys.argv", "johnnydep jdt1 --ignore-errors --fields name".split()
+        "sys.argv", "johnnydep jdt1 --index-url=https://test.pypi.org/simple  --ignore-errors --fields name".split()
     )
     main()
     out, err = capsys.readouterr()

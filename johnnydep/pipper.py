@@ -125,8 +125,8 @@ def get_versions(dist_name, index_url=None, env=None, extra_index_url=None):
     return versions
 
 
-def _cache_key(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None):
-    return hashkey(dist_name, index_url, env, extra_index_url, tmpdir)
+def _cache_key(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None, ignore_errors=None):
+    return hashkey(dist_name, index_url, env, extra_index_url, ignore_errors)
 
 
 # this decoration is a bit more complicated in order to avoid keying of tmpdir
@@ -135,18 +135,18 @@ _get_cache = TTLCache(maxsize=512, ttl=60 * 5)
 
 
 @cached(_get_cache, key=_cache_key)
-def get(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None):
+def get(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None, ignore_errors=False):
     args = _get_wheel_args(index_url, env, extra_index_url) + [dist_name]
     scratch_dir = tempfile.mkdtemp(dir=tmpdir)
     log.debug("wheeling and dealing", scratch_dir=os.path.abspath(scratch_dir), args=" ".join(args))
     try:
-        out = subprocess.check_output(args, stderr=subprocess.STDOUT, cwd=scratch_dir)
+        out = subprocess.check_output(args, stderr=subprocess.STDOUT, cwd=scratch_dir).decode("utf-8")
     except subprocess.CalledProcessError as err:
-        output = getattr(err, "output", b"").decode("utf-8")
-        log.warning(output)
-        raise
+        out = getattr(err, "output", b"").decode("utf-8")
+        log.warning(out)
+        if not ignore_errors:
+            raise
     log.debug("wheel command completed ok", dist_name=dist_name)
-    out = out.decode("utf-8")
     links = []
     lines = out.splitlines()
     for i, line in enumerate(lines):
@@ -194,7 +194,13 @@ def get(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None):
         # However, the dist itself should still be the first one downloaded.
     link = links[0]
     whls = glob(os.path.join(os.path.abspath(scratch_dir), "*.whl"))
-    [whl] = whls
+    try:
+        [whl] = whls
+    except ValueError:
+        if ignore_errors:
+            whl = ""
+        else:
+            raise
     url, _sep, checksum = link.partition("#")
     url = url.replace("/%2Bf/", "/+f/")  # some versions of pip did not unquote this fragment in the log
     if not checksum.startswith("md5=") and not checksum.startswith("sha256="):
