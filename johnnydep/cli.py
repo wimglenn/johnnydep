@@ -88,5 +88,5 @@ def main():
         ignore_errors=args.ignore_errors,
     )
     print(dist.serialise(fields=args.fields, format=args.output_format, recurse=args.recurse))
-    if has_error(dist):
+    if (args.recurse and has_error(dist)) or (not args.recurse and dist.error is not None):
         sys.exit(1)

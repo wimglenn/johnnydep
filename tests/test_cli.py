@@ -194,3 +194,16 @@ def test_root_has_error(mocker, capsys):
         ----------------
         dist404 (FAILED)
     """)
+
+
+def test_no_deps(mocker, capsys, make_dist):
+    make_dist(name="distA", install_requires=["distB"], version="0.1")
+    mocker.patch("sys.argv", "johnnydep distA --no-deps --fields name".split())
+    main()
+    out, err = capsys.readouterr()
+    assert out == dedent(
+        """\
+        name
+        ------
+        distA
+    """)

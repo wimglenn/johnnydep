@@ -250,6 +250,8 @@ class JohnnyDist(anytree.NodeMixin):
         data = [OrderedDict([(f, getattr(self, f, None)) for f in fields])]
         if format == "human":
             table = gen_table(self, extra_cols=fields)
+            if not recurse:
+                table = [next(table)]
             tabulate.PRESERVE_WHITESPACE = True
             return tabulate.tabulate(table, headers="keys")
         if recurse and self.requires:
