@@ -174,7 +174,8 @@ def test_fmt_ignore_errors_on_stdout(mocker, capsys, make_dist):
     mocker.patch(
         "sys.argv", "johnnydep distA --ignore-errors --fields name".split()
     )
-    main()
+    exit_code = main()
+    assert exit_code == 1
     out, err = capsys.readouterr()
     assert err == ""
     assert out == dedent(
@@ -194,9 +195,9 @@ def test_ignore_errors_build_error(mocker, capsys, fake_pip, monkeypatch, origin
     mocker.patch(
         "sys.argv", "johnnydep jdt1 --index-url=https://test.pypi.org/simple  --ignore-errors --fields name".split()
     )
-    main()
+    exit_code = main()
+    assert exit_code == 1
     out, err = capsys.readouterr()
-    print(out)
     assert out == dedent(
         """\
         name

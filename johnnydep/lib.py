@@ -28,7 +28,7 @@ from wimpy import cached_property
 from johnnydep import pipper
 from johnnydep.compat import oyaml
 
-__all__ = ["JohnnyDist", "gen_table", "flatten_deps"]
+__all__ = ["JohnnyDist", "gen_table", "flatten_deps", "has_error"]
 
 
 logger = get_logger(__name__)
@@ -76,12 +76,7 @@ class JohnnyDist(anytree.NodeMixin):
                     raise
                 self.import_names = None
                 self.metadata = {}
-                output = getattr(err, "output", b"").decode("utf-8")
-                try:
-                    trace_index = output.rindex("Traceback (most recent call last):")
-                    self.error = output[trace_index:]
-                except ValueError:
-                    self.error = output
+                self.error = err
 
         self.extras_requested = sorted(self.req.extras)
         if parent is None:
@@ -400,6 +395,16 @@ def _extract_metadata(whl_file):
     data = {k.lower(): v for k,v in vars(info).items()}
     data.pop("filename", None)
     return data
+
+
+def has_error(dist):
+    for node in dist.children:
+        if node.error:
+            return True
+        else:
+            if node.children:
+                return has_error(node)
+    return False
 
 
 @ttl_cache(maxsize=512, ttl=60 * 5)

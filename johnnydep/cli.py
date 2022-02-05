@@ -7,7 +7,7 @@ from argparse import ArgumentParser
 from collections import OrderedDict
 
 import johnnydep
-from johnnydep.lib import JohnnyDist
+from johnnydep.lib import JohnnyDist, has_error
 from johnnydep.logs import configure_logging
 from johnnydep.util import python_interpreter
 
@@ -84,3 +84,4 @@ def main():
         ignore_errors=args.ignore_errors
     )
     print(dist.serialise(fields=args.fields, format=args.output_format, recurse=args.recurse))
+    return 1 if has_error(dist) else 0

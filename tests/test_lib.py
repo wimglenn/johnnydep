@@ -520,4 +520,4 @@ def test_ignore_errors(make_dist):
     assert len(dist.children) == 1
     assert dist.children[0].name == "distb1"
     assert dist.children[0].error is not None
-    assert "No matching distribution found for distB1>=1.0" in dist.children[0].error
+    assert "No matching distribution found for distB1>=1.0" in dist.children[0].error.output.decode("utf-8")
