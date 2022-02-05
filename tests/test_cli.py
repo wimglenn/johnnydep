@@ -165,38 +165,11 @@ def test_all_fields_toml_out(mocker, capsys, make_dist):
     )
 
 
-def test_fmt_ignore_errors_on_stdout(mocker, capsys, make_dist):
-    make_dist(name="distA", install_requires=["distB1>=0.1", "distB2>=0.1"], version="0.1")
-    make_dist(name="distB1", install_requires=["distC1>=0.1", "distC2>=0.1"], version="0.1")
-    make_dist(name="distC2", version="0.1")
-    make_dist(name="distB2", version="0.1")
-
-    mocker.patch(
-        "sys.argv", "johnnydep distA --ignore-errors --fields name".split()
-    )
-    exit_code = main()
-    assert exit_code == 1
-    out, err = capsys.readouterr()
-    assert err == ""
-    assert out == dedent(
-        """\
-        name
-        ----------------------------
-        distA
-        ├── distB1>=0.1
-        │   ├── distC1>=0.1 (FAILED)
-        │   └── distC2>=0.1
-        └── distB2>=0.1
-    """)
-
-
-def test_ignore_errors_build_error(mocker, capsys, fake_pip, monkeypatch, original_subprocess):
+def test_ignore_errors_build_error(mocker, capsys, fake_pip, monkeypatch):
     monkeypatch.setenv("JDT3_FAIL", "1")
-    mocker.patch(
-        "sys.argv", "johnnydep jdt1 --index-url=https://test.pypi.org/simple  --ignore-errors --fields name".split()
-    )
-    exit_code = main()
-    assert exit_code == 1
+    mocker.patch("sys.argv", "johnnydep jdt1 --ignore-errors --fields name".split())
+    with pytest.raises(SystemExit(1)):
+        main()
     out, err = capsys.readouterr()
     assert out == dedent(
         """\
@@ -208,3 +181,16 @@ def test_ignore_errors_build_error(mocker, capsys, fake_pip, monkeypatch, origin
         │   └── jdt4
         └── jdt5
         """)
+
+
+def test_root_has_error(mocker, capsys):
+    mocker.patch("sys.argv", "johnnydep dist404 --ignore-errors --fields name".split())
+    with pytest.raises(SystemExit(1)):
+        main()
+    out, err = capsys.readouterr()
+    assert out == dedent(
+        """\
+        name
+        ----------------
+        dist404 (FAILED)
+    """)

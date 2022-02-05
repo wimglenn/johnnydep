@@ -16,7 +16,7 @@ from johnnydep import lib
 from johnnydep import pipper
 
 
-original_check_output = johnnydep.pipper.subprocess.check_output
+original_check_output = subprocess.check_output
 
 
 @pytest.fixture(autouse=True)
@@ -109,11 +109,6 @@ def make_dist(tmp_path, add_to_index, capsys, mocker):
     return f
 
 
-@pytest.fixture
-def original_subprocess(mocker):
-    mocker.patch("johnnydep.pipper.subprocess.check_output", original_check_output)
-
-
 @pytest.fixture(autouse=True)
 def fake_subprocess(mocker, add_to_index):
 
@@ -156,6 +151,7 @@ def fake_subprocess(mocker, add_to_index):
 @pytest.fixture
 def fake_pip(mocker):
     import pip
+    mocker.patch("johnnydep.pipper.subprocess.check_output", original_check_output)
 
     def local_files_args(index_url, env, extra_index_url):
         test_dir = os.path.abspath(os.path.join(__file__, os.pardir))

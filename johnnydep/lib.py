@@ -232,7 +232,7 @@ class JohnnyDist(anytree.NodeMixin):
             index_url=self.index_url,
             env=self.env,
             extra_index_url=self.extra_index_url,
-            ignore_errors=True
+            ignore_errors=True,
         )
 
     @property
@@ -398,13 +398,9 @@ def _extract_metadata(whl_file):
 
 
 def has_error(dist):
-    for node in dist.children:
-        if node.error:
-            return True
-        else:
-            if node.children:
-                return has_error(node)
-    return False
+    if dist.error is not None:
+        return True
+    return any(has_error(n) for n in dist.children)
 
 
 @ttl_cache(maxsize=512, ttl=60 * 5)
@@ -418,7 +414,7 @@ def _get_info(dist_name, index_url=None, env=None, extra_index_url=None):
             index_url=index_url,
             env=env,
             extra_index_url=extra_index_url,
-            tmpdir=tmpdir
+            tmpdir=tmpdir,
         )
         dist_path = data["path"]
         # extract any info we may need from downloaded dist right now, so the
