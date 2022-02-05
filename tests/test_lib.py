@@ -512,3 +512,12 @@ def test_metadata_cant_be_extracted(make_dist, mocker):
     mocker.patch("pkginfo.get_metadata", return_value=None)
     with pytest.raises(Exception("failed to get metadata")):
         JohnnyDist("jdtest")
+
+
+def test_ignore_errors(make_dist):
+    make_dist(name="distA", install_requires=["distB1>=1.0"], version="0.1")
+    dist = JohnnyDist("distA", ignore_errors=True)
+    assert len(dist.children) == 1
+    assert dist.children[0].name == "distb1"
+    assert dist.children[0].error is not None
+    assert "No matching distribution found for distB1>=1.0" in dist.children[0].error.output.decode("utf-8")

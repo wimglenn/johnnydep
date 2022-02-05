@@ -5,6 +5,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import tempfile
 from collections import OrderedDict
 from collections import defaultdict
@@ -27,7 +28,7 @@ from wimpy import cached_property
 from johnnydep import pipper
 from johnnydep.compat import oyaml
 
-__all__ = ["JohnnyDist", "gen_table", "flatten_deps"]
+__all__ = ["JohnnyDist", "gen_table", "flatten_deps", "has_error"]
 
 
 logger = get_logger(__name__)
@@ -40,13 +41,15 @@ class OrderedDefaultListDict(OrderedDict):
 
 
 class JohnnyDist(anytree.NodeMixin):
-    def __init__(self, req_string, parent=None, index_url=None, env=None, extra_index_url=None):
+    def __init__(self, req_string, parent=None, index_url=None, env=None, extra_index_url=None, ignore_errors=False):
         log = self.log = logger.bind(dist=req_string)
         log.info("init johnnydist", parent=parent and str(parent.req))
         self.parent = parent
         self.index_url = index_url
         self.env = env
         self.extra_index_url = extra_index_url
+        self.ignore_errors = ignore_errors
+        self.error = None
         self._recursed = False
 
         if req_string.endswith(".whl") and os.path.isfile(req_string):
@@ -61,12 +64,19 @@ class JohnnyDist(anytree.NodeMixin):
             self.name = canonicalize_name(self.req.name)
             self.specifier = str(self.req.specifier)
             log.debug("fetching best wheel")
-            self.import_names, self.metadata = _get_info(
-                dist_name=req_string,
-                index_url=index_url,
-                env=env,
-                extra_index_url=extra_index_url,
-            )
+            try:
+                self.import_names, self.metadata = _get_info(
+                    dist_name=req_string,
+                    index_url=index_url,
+                    env=env,
+                    extra_index_url=extra_index_url
+                )
+            except subprocess.CalledProcessError as err:
+                if not self.ignore_errors:
+                    raise
+                self.import_names = None
+                self.metadata = {}
+                self.error = err
 
         self.extras_requested = sorted(self.req.extras)
         if parent is None:
@@ -117,6 +127,7 @@ class JohnnyDist(anytree.NodeMixin):
                     index_url=self.index_url,
                     env=self.env,
                     extra_index_url=self.extra_index_url,
+                    ignore_errors=self.ignore_errors,
                 )
             self._recursed = True
         return super(JohnnyDist, self).children
@@ -221,15 +232,16 @@ class JohnnyDist(anytree.NodeMixin):
             index_url=self.index_url,
             env=self.env,
             extra_index_url=self.extra_index_url,
+            ignore_errors=True
         )
 
     @property
     def download_link(self):
-        return self._best["url"]
+        return self._best.get("url")
 
     @property
     def checksum(self):
-        return self._best["checksum"]
+        return self._best.get("checksum")
 
     def serialise(self, fields=("name", "summary"), recurse=True, format=None):
         if format == "pinned":
@@ -278,6 +290,8 @@ def gen_table(johnnydist, extra_cols=()):
     for pre, _fill, node in anytree.RenderTree(johnnydist):
         row = OrderedDict()
         name = str(node.req)
+        if node.error:
+            name += " (FAILED)"
         if "specifier" in extra_cols:
             name = wimpy.strip_suffix(name, str(node.specifier))
         row["name"] = pre + name
@@ -383,6 +397,16 @@ def _extract_metadata(whl_file):
     return data
 
 
+def has_error(dist):
+    for node in dist.children:
+        if node.error:
+            return True
+        else:
+            if node.children:
+                return has_error(node)
+    return False
+
+
 @ttl_cache(maxsize=512, ttl=60 * 5)
 def _get_info(dist_name, index_url=None, env=None, extra_index_url=None):
     log = logger.bind(dist_name=dist_name)
@@ -394,7 +418,7 @@ def _get_info(dist_name, index_url=None, env=None, extra_index_url=None):
             index_url=index_url,
             env=env,
             extra_index_url=extra_index_url,
-            tmpdir=tmpdir,
+            tmpdir=tmpdir
         )
         dist_path = data["path"]
         # extract any info we may need from downloaded dist right now, so the

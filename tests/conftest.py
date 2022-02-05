@@ -3,14 +3,20 @@ from __future__ import unicode_literals
 
 import hashlib
 import os
+import os.path
 import subprocess
+import sys
 
 import pytest
 from setuptools import setup
 from wimpy import working_directory
 
+import johnnydep
 from johnnydep import lib
 from johnnydep import pipper
+
+
+original_check_output = johnnydep.pipper.subprocess.check_output
 
 
 @pytest.fixture(autouse=True)
@@ -103,6 +109,11 @@ def make_dist(tmp_path, add_to_index, capsys, mocker):
     return f
 
 
+@pytest.fixture
+def original_subprocess(mocker):
+    mocker.patch("johnnydep.pipper.subprocess.check_output", original_check_output)
+
+
 @pytest.fixture(autouse=True)
 def fake_subprocess(mocker, add_to_index):
 
@@ -140,3 +151,39 @@ def fake_subprocess(mocker, add_to_index):
         return output
 
     mocker.patch("johnnydep.pipper.subprocess.check_output", wheel_proc)
+
+
+@pytest.fixture
+def fake_pip(mocker):
+    import pip
+
+    def local_files_args(index_url, env, extra_index_url):
+        test_dir = os.path.abspath(os.path.join(__file__, os.pardir))
+
+        args = [
+            sys.executable,
+            "-m",
+            "pip",
+            "wheel",
+            "-vvv",  # --verbose x3
+            "--no-deps",
+            "--no-cache-dir",
+            "--disable-pip-version-check",
+            "--find-links",
+            "file://{0}".format(os.path.join(test_dir, "test_deps"))
+        ]
+        if env is None:
+            pip_version = pip.__version__
+        else:
+            pip_version = dict(env)["pip_version"]
+            args[0] = dict(env)["python_executable"]
+        pip_major, pip_minor = pip_version.split(".")[0:2]
+        pip_major = int(pip_major)
+        pip_minor = int(pip_minor)
+        if pip_major >= 10:
+            args.append("--progress-bar=off")
+        if (pip_major, pip_minor) >= (20, 3):
+            # See https://github.com/pypa/pip/issues/9139#issuecomment-735443177
+            args.append("--use-deprecated=legacy-resolver")
+        return args
+    mocker.patch("johnnydep.pipper._get_wheel_args", local_files_args)
