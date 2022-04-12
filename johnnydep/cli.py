@@ -39,7 +39,7 @@ FIELDS = OrderedDict(
 
 def main():
     default_fields = os.environ.get("JOHNNYDEP_FIELDS", "name,summary").split(",")
-    parser = ArgumentParser(description=johnnydep.__doc__)
+    parser = ArgumentParser(prog="johnnydep", description=johnnydep.__doc__)
     parser.add_argument("req", help="The project name or requirement specifier")
     parser.add_argument("--index-url", "-i")
     parser.add_argument("--extra-index-url")
