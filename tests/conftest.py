@@ -11,7 +11,6 @@ import pytest
 from setuptools import setup
 from wimpy import working_directory
 
-import johnnydep
 from johnnydep import lib
 from johnnydep import pipper
 

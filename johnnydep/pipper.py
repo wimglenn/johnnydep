@@ -13,7 +13,6 @@ from argparse import ArgumentParser
 from collections import OrderedDict
 from glob import glob
 
-import pip
 import pkg_resources
 from cachetools import cached
 from cachetools.func import ttl_cache
@@ -43,6 +42,18 @@ def compute_checksum(target, algorithm="sha256", blocksize=2 ** 13):
     return result
 
 
+def _get_pip_version():
+    # try to get pip version without actually importing pip
+    # setuptools gets upset if you import pip before importing setuptools..
+    try:
+        import importlib.metadata  # Python 3.8+
+        return importlib.metadata.version("pip")
+    except Exception:
+        pass
+    import pip
+    return pip.__version__
+
+
 def _get_wheel_args(index_url, env, extra_index_url):
     args = [
         sys.executable,
@@ -61,7 +72,7 @@ def _get_wheel_args(index_url, env, extra_index_url):
     if extra_index_url is not None:
         args += ["--extra-index-url", extra_index_url, "--trusted-host", urlparse(extra_index_url).hostname]
     if env is None:
-        pip_version = pip.__version__
+        pip_version = _get_pip_version()
     else:
         pip_version = dict(env)["pip_version"]
         args[0] = dict(env)["python_executable"]
@@ -229,8 +240,6 @@ def main():
         "sys.executable": sys.executable,
         "sys.version": sys.version,
         "sys.path": sys.path,
-        "pip.__version__": pip.__version__,
-        "pip.__file__": pip.__file__,
     }
     args = parser.parse_args()
     configure_logging(verbosity=args.verbose)
