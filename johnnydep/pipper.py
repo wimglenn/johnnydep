@@ -6,12 +6,14 @@ from __future__ import unicode_literals
 import hashlib
 import json
 import os
-import subprocess
 import sys
 import tempfile
 from argparse import ArgumentParser
 from collections import OrderedDict
 from glob import glob
+from subprocess import CalledProcessError
+from subprocess import check_output
+from subprocess import STDOUT
 
 import pkg_resources
 from cachetools import cached
@@ -109,8 +111,8 @@ def get_versions(dist_name, index_url=None, env=None, extra_index_url=None):
     log.debug("checking versions available", dist=bare_name)
     args = _get_wheel_args(index_url, env, extra_index_url) + [dist_name + "==showmethemoney"]
     try:
-        out = subprocess.check_output(args, stderr=subprocess.STDOUT)
-    except subprocess.CalledProcessError as err:
+        out = check_output(args, stderr=STDOUT)
+    except CalledProcessError as err:
         # expected. we forced this by using a non-existing version number.
         out = getattr(err, "output", b"")
     else:
@@ -130,8 +132,10 @@ def get_versions(dist_name, index_url=None, env=None, extra_index_url=None):
     prefix = "(from versions: "
     start = line.index(prefix) + len(prefix)
     stop = line.rfind(")")
-    versions = line[start:stop].split(",")
-    versions = [v.strip() for v in versions if v.strip()]
+    versions = line[start:stop]
+    if versions.lower() == "none":
+        return []
+    versions = [v.strip() for v in versions.split(",") if v.strip()]
     log.debug("found versions", dist=bare_name, versions=versions)
     return versions
 
@@ -151,8 +155,8 @@ def get(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None, 
     scratch_dir = tempfile.mkdtemp(dir=tmpdir)
     log.debug("wheeling and dealing", scratch_dir=os.path.abspath(scratch_dir), args=" ".join(args))
     try:
-        out = subprocess.check_output(args, stderr=subprocess.STDOUT, cwd=scratch_dir).decode("utf-8")
-    except subprocess.CalledProcessError as err:
+        out = check_output(args, stderr=STDOUT, cwd=scratch_dir).decode("utf-8")
+    except CalledProcessError as err:
         out = getattr(err, "output", b"").decode("utf-8")
         log.warning(out)
         if not ignore_errors:

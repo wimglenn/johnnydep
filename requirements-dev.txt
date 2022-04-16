@@ -5,4 +5,5 @@ pytest-cov
 pytest-raisin
 pytest-socket
 coverage
-wimpy==0.3  # just something we can pin
+whl >= 0.0.3
+wimpy == 0.3  # just something we can pin

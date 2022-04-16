@@ -4,11 +4,11 @@ from __future__ import unicode_literals
 import json
 import os
 import re
-import shutil
 import subprocess
-import tempfile
 from collections import OrderedDict
 from collections import defaultdict
+from shutil import rmtree
+from tempfile import mkdtemp
 from zipfile import ZipFile
 
 import anytree
@@ -408,7 +408,7 @@ def has_error(dist):
 @ttl_cache(maxsize=512, ttl=60 * 5)
 def _get_info(dist_name, index_url=None, env=None, extra_index_url=None):
     log = logger.bind(dist_name=dist_name)
-    tmpdir = tempfile.mkdtemp()
+    tmpdir = mkdtemp()
     log.debug("created scratch", tmpdir=tmpdir)
     try:
         data = pipper.get(
@@ -425,7 +425,7 @@ def _get_info(dist_name, index_url=None, env=None, extra_index_url=None):
         metadata = _extract_metadata(dist_path)
     finally:
         log.debug("removing scratch", tmpdir=tmpdir)
-        shutil.rmtree(tmpdir, ignore_errors=True)
+        rmtree(tmpdir, ignore_errors=True)
     return import_names, metadata
 
 
