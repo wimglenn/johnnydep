@@ -124,7 +124,7 @@ def test_homepage(make_dist):
 
 
 def test_no_homepage(make_dist):
-    make_dist(url="")
+    make_dist(url=None)
     jdist = JohnnyDist("jdtest")
     assert jdist.homepage is None
 
@@ -157,11 +157,10 @@ def test_checksum_md5(make_dist):
 def test_scratch_dirs_are_being_cleaned_up(make_dist, mocker, tmp_path):
     make_dist()
     scratch = str(tmp_path)
-    mkdtemp = mocker.patch("johnnydep.lib.tempfile.mkdtemp", return_value=scratch)
-    rmtree = mocker.patch("johnnydep.lib.shutil.rmtree")
+    mkdtemp = mocker.patch("johnnydep.lib.mkdtemp", return_value=scratch)
+    rmtree = mocker.patch("johnnydep.lib.rmtree")
     JohnnyDist("jdtest")
-    assert mkdtemp.call_count == 2
-    assert mkdtemp.call_args_list == [mocker.call(), mocker.call(dir=mocker.ANY)]
+    mkdtemp.assert_called_once_with()
     rmtree.assert_called_once_with(scratch, ignore_errors=True)
 
 
@@ -227,32 +226,8 @@ def test_conditional_dependency_excluded_by_environment_marker(make_dist):
     assert jdist.requires == ["child1"]
 
 
-def test_conditional_dependency_included_by_environment_marker_old(make_dist):
-    make_dist(
-        name="parent",
-        install_requires=["child1"],
-        extras_require={":python_version>='1.0'": ["child2"]},
-    )
-    make_dist(name="child1")
-    make_dist(name="child2")
-    jdist = JohnnyDist("parent")
-    assert jdist.requires == ["child1", "child2"]
-
-
-def test_conditional_dependency_excluded_by_environment_marker_old(make_dist):
-    make_dist(
-        name="parent",
-        install_requires=["child1"],
-        extras_require={":python_version<'1.0'": ["child2"]},
-    )
-    make_dist(name="child1")
-    make_dist(name="child2")
-    jdist = JohnnyDist("parent")
-    assert jdist.requires == ["child1"]
-
-
 def test_conditional_dependency_included_by_extra(make_dist):
-    make_dist(name="parent", install_requires=["child1"], extras_require={"x": "child2"})
+    make_dist(name="parent", install_requires=["child1"], extras_require={"x": ["child2"]})
     make_dist(name="child1")
     make_dist(name="child2")
     jdist = JohnnyDist("parent[x]")
@@ -260,7 +235,7 @@ def test_conditional_dependency_included_by_extra(make_dist):
 
 
 def test_conditional_dependency_excluded_by_extra(make_dist):
-    make_dist(name="parent", install_requires=["child1"], extras_require={"x": "child2"})
+    make_dist(name="parent", install_requires=["child1"], extras_require={"x": ["child2"]})
     make_dist(name="child1")
     make_dist(name="child2")
     jdist = JohnnyDist("parent")
@@ -268,7 +243,7 @@ def test_conditional_dependency_excluded_by_extra(make_dist):
 
 
 def test_conditional_dependency_included_by_extra_but_excluded_by_environment_marker(make_dist):
-    make_dist(name="parent", extras_require={"x": 'child; python_version<"1.0"'})
+    make_dist(name="parent", extras_require={"x": ['child; python_version<"1.0"']})
     make_dist(name="child")
     jdist = JohnnyDist("parent[x]")
     assert jdist.requires == []

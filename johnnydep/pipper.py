@@ -6,14 +6,15 @@ from __future__ import unicode_literals
 import hashlib
 import json
 import os
-import subprocess
 import sys
 import tempfile
 from argparse import ArgumentParser
 from collections import OrderedDict
 from glob import glob
+from subprocess import CalledProcessError
+from subprocess import check_output
+from subprocess import STDOUT
 
-import pip
 import pkg_resources
 from cachetools import cached
 from cachetools.func import ttl_cache
@@ -43,6 +44,18 @@ def compute_checksum(target, algorithm="sha256", blocksize=2 ** 13):
     return result
 
 
+def _get_pip_version():
+    # try to get pip version without actually importing pip
+    # setuptools gets upset if you import pip before importing setuptools..
+    try:
+        import importlib.metadata  # Python 3.8+
+        return importlib.metadata.version("pip")
+    except Exception:
+        pass
+    import pip
+    return pip.__version__
+
+
 def _get_wheel_args(index_url, env, extra_index_url):
     args = [
         sys.executable,
@@ -61,7 +74,7 @@ def _get_wheel_args(index_url, env, extra_index_url):
     if extra_index_url is not None:
         args += ["--extra-index-url", extra_index_url, "--trusted-host", urlparse(extra_index_url).hostname]
     if env is None:
-        pip_version = pip.__version__
+        pip_version = _get_pip_version()
     else:
         pip_version = dict(env)["pip_version"]
         args[0] = dict(env)["python_executable"]
@@ -98,8 +111,8 @@ def get_versions(dist_name, index_url=None, env=None, extra_index_url=None):
     log.debug("checking versions available", dist=bare_name)
     args = _get_wheel_args(index_url, env, extra_index_url) + [dist_name + "==showmethemoney"]
     try:
-        out = subprocess.check_output(args, stderr=subprocess.STDOUT)
-    except subprocess.CalledProcessError as err:
+        out = check_output(args, stderr=STDOUT)
+    except CalledProcessError as err:
         # expected. we forced this by using a non-existing version number.
         out = getattr(err, "output", b"")
     else:
@@ -119,8 +132,10 @@ def get_versions(dist_name, index_url=None, env=None, extra_index_url=None):
     prefix = "(from versions: "
     start = line.index(prefix) + len(prefix)
     stop = line.rfind(")")
-    versions = line[start:stop].split(",")
-    versions = [v.strip() for v in versions if v.strip()]
+    versions = line[start:stop]
+    if versions.lower() == "none":
+        return []
+    versions = [v.strip() for v in versions.split(",") if v.strip()]
     log.debug("found versions", dist=bare_name, versions=versions)
     return versions
 
@@ -140,8 +155,8 @@ def get(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None, 
     scratch_dir = tempfile.mkdtemp(dir=tmpdir)
     log.debug("wheeling and dealing", scratch_dir=os.path.abspath(scratch_dir), args=" ".join(args))
     try:
-        out = subprocess.check_output(args, stderr=subprocess.STDOUT, cwd=scratch_dir).decode("utf-8")
-    except subprocess.CalledProcessError as err:
+        out = check_output(args, stderr=STDOUT, cwd=scratch_dir).decode("utf-8")
+    except CalledProcessError as err:
         out = getattr(err, "output", b"").decode("utf-8")
         log.warning(out)
         if not ignore_errors:
@@ -229,8 +244,6 @@ def main():
         "sys.executable": sys.executable,
         "sys.version": sys.version,
         "sys.path": sys.path,
-        "pip.__version__": pip.__version__,
-        "pip.__file__": pip.__file__,
     }
     args = parser.parse_args()
     configure_logging(verbosity=args.verbose)

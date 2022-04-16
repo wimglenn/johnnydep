@@ -1,6 +1,7 @@
 # coding: utf-8
 from __future__ import unicode_literals
 
+import sys
 from textwrap import dedent
 
 import pytest
@@ -39,7 +40,7 @@ def test_printed_table_on_stdout_with_specifier(make_dist, mocker, capsys):
 
 
 def test_printed_tree_on_stdout(mocker, capsys, make_dist):
-    make_dist(name="thing", extras_require={"xyz": "spam>0.30.0", "abc": "eggs"})
+    make_dist(name="thing", extras_require={"xyz": ["spam>0.30.0"], "abc": ["eggs"]})
     make_dist(name="spam", version="0.31")
     make_dist(name="eggs")
     mocker.patch(
@@ -166,7 +167,10 @@ def test_all_fields_toml_out(mocker, capsys, make_dist):
 
 
 def test_ignore_errors_build_error(mocker, capsys, fake_pip, monkeypatch):
-    monkeypatch.setenv("JDT3_FAIL", "1")
+    if sys.version_info.major == 2:
+        monkeypatch.setenv(b"JDT3_FAIL", b"1")
+    else:
+        monkeypatch.setenv("JDT3_FAIL", "1")
     mocker.patch("sys.argv", "johnnydep jdt1 --ignore-errors --fields name".split())
     with pytest.raises(SystemExit(1)):
         main()
