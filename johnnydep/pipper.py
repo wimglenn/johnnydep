@@ -70,7 +70,9 @@ def _get_wheel_args(index_url, env, extra_index_url):
     if index_url is not None:
         args += ["--index-url", index_url]
         if index_url != DEFAULT_INDEX:
-            args += ["--trusted-host", urlparse(index_url).hostname]
+            hostname = urlparse(index_url).hostname
+            if hostname:
+                args += ["--trusted-host", hostname]
     if extra_index_url is not None:
         args += ["--extra-index-url", extra_index_url, "--trusted-host", urlparse(extra_index_url).hostname]
     if env is None:
@@ -83,7 +85,7 @@ def _get_wheel_args(index_url, env, extra_index_url):
     pip_minor = int(pip_minor)
     if pip_major >= 10:
         args.append("--progress-bar=off")
-    if (pip_major, pip_minor) >= (20, 3):
+    if (20, 3) <= (pip_major, pip_minor) < (21, 1):
         # See https://github.com/pypa/pip/issues/9139#issuecomment-735443177
         args.append("--use-deprecated=legacy-resolver")
     return args
@@ -189,6 +191,9 @@ def get(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None, 
             links.append(link)
         elif line.startswith("Source in ") and "which satisfies requirement" in line:
             link = line.split()[-1]
+            links.append(link)
+        elif line.startswith("Added ") and " from file://" in line:
+            [link] = [x for x in line.split() if x.startswith("file://")]
             links.append(link)
     links = list(OrderedDict.fromkeys(links))  # order-preserving dedupe
     if not links:
