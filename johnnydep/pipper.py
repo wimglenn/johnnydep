@@ -165,6 +165,7 @@ def get(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None, 
             raise
     log.debug("wheel command completed ok", dist_name=dist_name)
     links = []
+    local_links = []
     lines = out.splitlines()
     for i, line in enumerate(lines):
         line = line.strip()
@@ -194,7 +195,10 @@ def get(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None, 
             links.append(link)
         elif line.startswith("Added ") and " from file://" in line:
             [link] = [x for x in line.split() if x.startswith("file://")]
-            links.append(link)
+            local_links.append(link)
+    if not links:
+        # prefer http scheme over file
+        links += local_links
     links = list(OrderedDict.fromkeys(links))  # order-preserving dedupe
     if not links:
         log.warning("could not find download link", out=out)
