@@ -122,3 +122,11 @@ def test_cant_pin():
     with pytest.raises(Exception) as cm:
         jdist.pinned
     assert str(cm.value) == "Can not pin because no version available is in spec"
+
+
+def test_whl_extras():
+    whl_fname = os.path.join(here, "testwhlextra-1.0.0-py3-none-any.whl")
+    jdist = JohnnyDist(whl_fname + "[dev]")
+    assert jdist.extras_requested == ["dev"], "should have found the extra dev deps"
+    assert jdist.requires == ["black==22.1.0", "flake8==4.0.1", "xdoctest>=1.0.0"]
+    assert JohnnyDist(whl_fname).requires == ["xdoctest>=1.0.0"]

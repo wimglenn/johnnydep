@@ -51,15 +51,16 @@ class JohnnyDist(anytree.NodeMixin):
         self.error = None
         self._recursed = False
 
-        if req_string.endswith(".whl") and os.path.isfile(req_string):
+        fname, sep, extras = req_string.partition("[")
+        if fname.endswith(".whl") and os.path.isfile(fname):
             # crudely parse dist name and version from wheel filename
             # see https://peps.python.org/pep-0427/#file-name-convention
-            parts = os.path.basename(req_string).split("-")
+            parts = os.path.basename(fname).split("-")
             self.name = canonicalize_name(parts[0])
             self.specifier = "==" + canonicalize_version(parts[1])
-            self.req = pkg_resources.Requirement.parse(self.name + self.specifier)
-            self.import_names = _discover_import_names(req_string)
-            self.metadata = _extract_metadata(req_string)
+            self.req = pkg_resources.Requirement.parse(self.name + sep + extras + self.specifier)
+            self.import_names = _discover_import_names(fname)
+            self.metadata = _extract_metadata(fname)
         else:
             self.req = pkg_resources.Requirement.parse(req_string)
             self.name = canonicalize_name(self.req.name)
