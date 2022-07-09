@@ -126,6 +126,7 @@ def test_cant_pin():
 
 def test_whl_extras():
     whl_fname = os.path.join(here, "testwhlextra-1.0.0-py3-none-any.whl")
-    print(f'whl_fname={whl_fname}')
-    jdist = JohnnyDist(whl_fname + '[dev]')
-    assert jdist.extras_requested == ['dev'], 'should have found the extra dev deps'
+    jdist = JohnnyDist(whl_fname + "[dev]")
+    assert jdist.extras_requested == ["dev"], "should have found the extra dev deps"
+    assert jdist.requires == ["black==22.1.0", "flake8==4.0.1", "xdoctest>=1.0.0"]
+    assert JohnnyDist(whl_fname).requires == ["xdoctest>=1.0.0"]

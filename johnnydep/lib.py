@@ -51,45 +51,16 @@ class JohnnyDist(anytree.NodeMixin):
         self.error = None
         self._recursed = False
 
-        FIX_WHEEL_EXTRA_AND_DEPS = True
-        if FIX_WHEEL_EXTRA_AND_DEPS:
-            # Remove any extras suffix on the wheel file
-            # (note: this is not a robust way to do this, brackets can be parts
-            # of filenames, this is only a proof of concept)
-            maybe_whl = req_string.split('[')[0]
-            if maybe_whl.endswith(".whl") and os.path.isfile(maybe_whl):
-                whl_file = maybe_whl
-            else:
-                whl_file = None
-        else:
-            # Old way
-            if req_string.endswith(".whl") and os.path.isfile(req_string):
-                whl_file = req_string
-            else:
-                whl_file = None
-
-        if whl_file is not None:
+        fname, sep, extras = req_string.partition("[")
+        if fname.endswith(".whl") and os.path.isfile(fname):
             # crudely parse dist name and version from wheel filename
             # see https://peps.python.org/pep-0427/#file-name-convention
-            whl_spec_suffix = os.path.basename(req_string).split('.whl')[1]
-            if ']' in whl_spec_suffix:
-                a, b, c = whl_spec_suffix.partition(']')
-                extras_spec = a + b
-                versions_spec = c
-                # Do we allow the versions spec to be given?
-                # Probably should, and just check the wheel name corresponds
-                # with it.
-            else:
-                extras_spec = ''
-                versions_spec = whl_spec_suffix
-
-            whl_name = os.path.basename(whl_file)
-            parts = whl_name.split("-")
+            parts = os.path.basename(fname).split("-")
             self.name = canonicalize_name(parts[0])
             self.specifier = "==" + canonicalize_version(parts[1])
-            self.req = pkg_resources.Requirement.parse(self.name + extras_spec + self.specifier)
-            self.import_names = _discover_import_names(whl_file)
-            self.metadata = _extract_metadata(whl_file)
+            self.req = pkg_resources.Requirement.parse(self.name + sep + extras + self.specifier)
+            self.import_names = _discover_import_names(fname)
+            self.metadata = _extract_metadata(fname)
         else:
             self.req = pkg_resources.Requirement.parse(req_string)
             self.name = canonicalize_name(self.req.name)
