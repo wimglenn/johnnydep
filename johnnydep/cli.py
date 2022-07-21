@@ -5,15 +5,15 @@ from __future__ import unicode_literals
 import os
 import sys
 from argparse import ArgumentParser
-from collections import OrderedDict
 
 import johnnydep
+from johnnydep.compat import dict
 from johnnydep.lib import JohnnyDist, has_error
 from johnnydep.logs import configure_logging
 from johnnydep.util import python_interpreter
 
 
-FIELDS = OrderedDict(
+FIELDS = dict(
     [
         # (attribute, help)
         ("name", "Canonical name of the distribution"),
