@@ -9,7 +9,6 @@ import os
 import sys
 import tempfile
 from argparse import ArgumentParser
-from collections import OrderedDict
 from glob import glob
 from subprocess import CalledProcessError
 from subprocess import check_output
@@ -22,7 +21,7 @@ from cachetools.keys import hashkey
 from cachetools import TTLCache
 from structlog import get_logger
 
-from johnnydep.compat import urlparse, urlretrieve
+from johnnydep.compat import urlparse, urlretrieve, dict
 from johnnydep.logs import configure_logging
 from johnnydep.util import python_interpreter
 
@@ -199,7 +198,7 @@ def get(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None, 
     if not links:
         # prefer http scheme over file
         links += local_links
-    links = list(OrderedDict.fromkeys(links))  # order-preserving dedupe
+    links = list(dict.fromkeys(links))  # order-preserving dedupe
     if not links:
         log.warning("could not find download link", out=out)
         raise Exception("failed to collect dist")

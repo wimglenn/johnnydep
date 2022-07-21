@@ -5,7 +5,6 @@ import json
 import os
 import re
 import subprocess
-from collections import OrderedDict
 from collections import defaultdict
 from shutil import rmtree
 from tempfile import mkdtemp
@@ -25,6 +24,7 @@ from structlog import get_logger
 from wimpy import cached_property
 
 from johnnydep import pipper
+from johnnydep.compat import dict
 from johnnydep.compat import oyaml
 
 __all__ = ["JohnnyDist", "gen_table", "flatten_deps", "has_error"]
@@ -33,7 +33,7 @@ __all__ = ["JohnnyDist", "gen_table", "flatten_deps", "has_error"]
 logger = get_logger(__name__)
 
 
-class OrderedDefaultListDict(OrderedDict):
+class OrderedDefaultListDict(dict):
     def __missing__(self, key):
         self[key] = value = []
         return value
@@ -249,7 +249,7 @@ class JohnnyDist(anytree.NodeMixin):
         if format == "pinned":
             # user-specified fields are ignored/invalid in this case
             fields = ("pinned",)
-        data = [OrderedDict([(f, getattr(self, f, None)) for f in fields])]
+        data = [dict([(f, getattr(self, f, None)) for f in fields])]
         if format == "human":
             table = gen_table(self, extra_cols=fields)
             if not recurse:
@@ -288,11 +288,11 @@ class JohnnyDist(anytree.NodeMixin):
 
 
 def gen_table(johnnydist, extra_cols=()):
-    extra_cols = OrderedDict.fromkeys(extra_cols)  # de-dupe and preserve ordering
+    extra_cols = dict.fromkeys(extra_cols)  # de-dupe and preserve ordering
     extra_cols.pop("name", None)  # this is always included anyway, no need to ask for it
     johnnydist.log.debug("generating table")
     for pre, _fill, node in anytree.RenderTree(johnnydist):
-        row = OrderedDict()
+        row = dict()
         name = str(node.req)
         if node.error:
             name += " (FAILED)"
@@ -323,7 +323,7 @@ def flatten_deps(johnnydist):
         spec = spec_map[name]
         spec.prereleases = True
         extras = extra_map[name]
-        required_by = list(OrderedDict.fromkeys(required_by_map[name]))  # order preserving de-dupe
+        required_by = list(dict.fromkeys(required_by_map[name]))  # order preserving de-dupe
         for dist in dists:
             if dist.version_latest_in_spec in spec and set(dist.extras_requested) >= extras:
                 dist.required_by = required_by

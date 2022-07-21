@@ -1,3 +1,5 @@
+from collections import OrderedDict
+
 import oyaml
 
 try:
@@ -7,6 +9,12 @@ except ImportError:
     # Python 2
     import urllib2
     from urlparse import urlparse
+
+
+if oyaml._std_dict_is_order_preserving:
+    dict = dict
+else:
+    dict = OrderedDict
 
 
 def urlretrieve(url, filename, data=None, auth=None):
