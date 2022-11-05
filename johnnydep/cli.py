@@ -2,7 +2,7 @@
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from typing import Sequence, Union
+from typing import Optional, Union, Sequence
 import os
 import sys
 from argparse import ArgumentParser
@@ -38,9 +38,11 @@ FIELDS = dict(
 )
 
 
-def main(given_args: Sequence[str] = None) -> str:
-    if (given_args is not None) and isinstance(given_args, Sequence):
-        given_args = tuple(map(str, given_args))
+def main(given_args: Optional[Union[str, Sequence[str]]] = None) -> str:
+    if isinstance(given_args, str):
+        given_args = given_args.strip().split(' ')  # split to a sequence
+    if isinstance(given_args, Sequence):
+        given_args = tuple(map(str, given_args))  # convert the sequence to a tuple of strings
 
     default_fields = os.environ.get("JOHNNYDEP_FIELDS", "name,summary").split(",")
     parser = ArgumentParser(prog="johnnydep", description=johnnydep.__doc__)
