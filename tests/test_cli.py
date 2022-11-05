@@ -211,3 +211,19 @@ def test_no_deps(mocker, capsys, make_dist):
         ------
         distA
     """)
+
+
+def test_given_args(capsys, make_dist):
+    make_dist()
+    given_args = "jdtest==0.1.2".split()
+    result = main(given_args)
+    out, err = capsys.readouterr()
+    assert err == ""
+    assert out == ""
+    assert result == dedent(
+        """\
+        name           summary
+        -------------  ---------------------------------
+        jdtest==0.1.2  default text for metadata summary
+    """
+    ).rstrip('\n')

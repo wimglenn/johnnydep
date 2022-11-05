@@ -2,6 +2,7 @@
 from __future__ import print_function
 from __future__ import unicode_literals
 
+from typing import Sequence, Union
 import os
 import sys
 from argparse import ArgumentParser
@@ -37,7 +38,10 @@ FIELDS = dict(
 )
 
 
-def main():
+def main(given_args: Sequence[str] = None) -> str:
+    if (given_args is not None) and isinstance(given_args, Sequence):
+        given_args = tuple(map(str, given_args))
+
     default_fields = os.environ.get("JOHNNYDEP_FIELDS", "name,summary").split(",")
     parser = ArgumentParser(prog="johnnydep", description=johnnydep.__doc__)
     parser.add_argument("req", help="The project name or requirement specifier")
@@ -76,7 +80,7 @@ def main():
         action="version",
         version="%(prog)s v{}".format(johnnydep.__version__),
     )
-    args = parser.parse_args()
+    args = parser.parse_args(given_args)
     if "ALL" in args.fields:
         args.fields = list(FIELDS)
     configure_logging(verbosity=args.verbose)
@@ -87,6 +91,9 @@ def main():
         extra_index_url=args.extra_index_url,
         ignore_errors=args.ignore_errors,
     )
-    print(dist.serialise(fields=args.fields, format=args.output_format, recurse=args.recurse))
+    result = dist.serialise(fields=args.fields, format=args.output_format, recurse=args.recurse)
     if (args.recurse and has_error(dist)) or (not args.recurse and dist.error is not None):
         sys.exit(1)
+    if given_args is None:
+        print(result)
+    return result
