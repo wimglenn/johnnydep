@@ -2,7 +2,6 @@
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from typing import Optional, Union, Sequence
 import os
 import sys
 from argparse import ArgumentParser
@@ -38,10 +37,11 @@ FIELDS = dict(
 )
 
 
-def main(given_args: Optional[Union[str, Sequence[str]]] = None) -> str:
+def main(given_args=None):
+    # type: (str | list[str]) -> str
     if isinstance(given_args, str):
         given_args = given_args.strip().split(' ')  # split to a sequence
-    if isinstance(given_args, Sequence):
+    if isinstance(given_args, (list, tuple)):
         given_args = tuple(map(str, given_args))  # convert the sequence to a tuple of strings
 
     default_fields = os.environ.get("JOHNNYDEP_FIELDS", "name,summary").split(",")
@@ -94,8 +94,9 @@ def main(given_args: Optional[Union[str, Sequence[str]]] = None) -> str:
         ignore_errors=args.ignore_errors,
     )
     result = dist.serialise(fields=args.fields, format=args.output_format, recurse=args.recurse)
-    if (args.recurse and has_error(dist)) or (not args.recurse and dist.error is not None):
-        sys.exit(1)
     if given_args is None:
         print(result)
+        if (args.recurse and has_error(dist)) or (not args.recurse and dist.error is not None):
+            sys.exit(1)
+
     return result
