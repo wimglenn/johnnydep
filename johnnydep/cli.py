@@ -38,7 +38,7 @@ FIELDS = dict(
 
 
 def _parse_args(given_args=None):
-    # type: (list[str]) -> "argeparse.NameSpace"
+    # type: (list[str] | list[unicode]) -> "argeparse.NameSpace"
     default_fields = os.environ.get("JOHNNYDEP_FIELDS", "name,summary").split(",")
     parser = ArgumentParser(prog="johnnydep", description=johnnydep.__doc__)
     parser.add_argument("req", help="The project name or requirement specifier")
@@ -77,62 +77,23 @@ def _parse_args(given_args=None):
         action="version",
         version="%(prog)s v{}".format(johnnydep.__version__),
     )
-    args = parser.parse_args(given_args)
+    args = parser.parse_args(given_args)  # will check sys.argv if given_args is None
     if "ALL" in args.fields:
         args.fields = list(FIELDS)
     return args
 
 
 def main(given_args=None):
-    # type: (str | list[str]) -> str
-    if isinstance(given_args, str):
+    # type: (str | unicode | list[str] | list[unicode]) -> str
+    if isinstance(given_args, (str, type(u''))):
         given_args = given_args.strip().split(' ')  # split to a sequence
     if isinstance(given_args, (list, tuple)):
         given_args = list(map(str, given_args))  # convert the sequence to a list of strings
 
-    default_fields = os.environ.get("JOHNNYDEP_FIELDS", "name,summary").split(",")
-    parser = ArgumentParser(prog="johnnydep", description=johnnydep.__doc__)
-    parser.add_argument("req", help="The project name or requirement specifier")
-    parser.add_argument("--index-url", "-i")
-    parser.add_argument("--extra-index-url")
-    parser.add_argument(
-        "--ignore-errors",
-        action="store_true",
-        help="Continue rendering the tree even if errors occur",
-    )
-    parser.add_argument(
-        "--output-format",
-        "-o",
-        choices=["human", "json", "yaml", "python", "toml", "pinned"],
-        default="human",
-        help="default: %(default)s",
-    )
-    parser.add_argument(
-        "--no-deps",
-        help="Don't recurse the dependency tree. Has no effect for output format 'human'",
-        dest="recurse",
-        action="store_false",
-    )
-    parser.add_argument(
-        "--fields",
-        "-f",
-        nargs="*",
-        default=default_fields,
-        choices=list(FIELDS) + ["ALL"],
-        help="default: %(default)s",
-    )
-    parser.add_argument("--for-python", "-p", dest="env", type=python_interpreter)
-    parser.add_argument("--verbose", "-v", default=1, type=int, choices=range(3))
-    parser.add_argument(
-        "--version",
-        action="version",
-        version="%(prog)s v{}".format(johnnydep.__version__),
-    )
-    args = parser.parse_args(given_args)
-    if "ALL" in args.fields:
-        args.fields = list(FIELDS)
+    args = _parse_args(given_args)
     if given_args is None:
         configure_logging(verbosity=args.verbose)
+
     dist = JohnnyDist(
         args.req,
         index_url=args.index_url,

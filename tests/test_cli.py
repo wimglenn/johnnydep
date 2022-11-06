@@ -6,7 +6,7 @@ from textwrap import dedent
 
 import pytest
 
-from johnnydep.cli import main
+from johnnydep.cli import main, _parse_args, FIELDS
 
 
 def test_printed_table_on_stdout(mocker, capsys, make_dist):
@@ -248,3 +248,9 @@ def test_given_args_string(capsys, make_dist):
         distC[x,y,z]==0.1
     """
     ).rstrip('\n')
+
+
+def test_cmd_fields_option_all(make_dist):
+    args = _parse_args([str(word) for word in "distA --fields ALL".split(' ')])
+    for args_field, field in zip(args.fields, FIELDS):
+        assert args_field == field
