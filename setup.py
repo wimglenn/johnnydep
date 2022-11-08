@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name="johnnydep",
-    version="1.14",
+    version="1.15",
     description="Display dependency tree of Python distribution",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
