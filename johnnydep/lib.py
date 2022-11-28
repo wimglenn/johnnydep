@@ -26,6 +26,7 @@ from wimpy import cached_property
 from johnnydep import pipper
 from johnnydep.compat import dict
 from johnnydep.compat import oyaml
+from johnnydep.util import CircularMarker
 
 __all__ = ["JohnnyDist", "gen_table", "flatten_deps", "has_error"]
 
@@ -122,15 +123,22 @@ class JohnnyDist(anytree.NodeMixin):
         """my immediate deps, as a tuple of johnnydists"""
         if not self._recursed:
             self.log.debug("populating dep tree")
-            for dep in self.requires:
-                JohnnyDist(
-                    req_string=dep,
-                    parent=self,
-                    index_url=self.index_url,
-                    env=self.env,
-                    extra_index_url=self.extra_index_url,
-                    ignore_errors=self.ignore_errors,
-                )
+            circular_deps = _detect_circular(self)
+            if circular_deps:
+                chain = " -> ".join([d._name_with_extras() for d in circular_deps])
+                summary = "... <circular dependency marker for {}>".format(chain)
+                self.log.info("pruning circular dependency", chain=chain)
+                _dep = CircularMarker(summary=summary, parent=self)
+            else:
+                for dep in self.requires:
+                    JohnnyDist(
+                        req_string=dep,
+                        parent=self,
+                        index_url=self.index_url,
+                        env=self.env,
+                        extra_index_url=self.extra_index_url,
+                        ignore_errors=self.ignore_errors,
+                    )
             self._recursed = True
         return super(JohnnyDist, self).children
 
@@ -276,14 +284,18 @@ class JohnnyDist(anytree.NodeMixin):
 
     serialize = serialise
 
+    def _name_with_extras(self):
+        result = self.name
+        if self.extras_requested:
+            result += "[{}]".format(",".join(self.extras_requested))
+        return result
+
     def _repr_pretty_(self, p, cycle):
         # hook for IPython's pretty-printer
         if cycle:
             p.text(repr(self))
         else:
-            fullname = self.name + self.specifier
-            if self.extras_requested:
-                fullname += "[{}]".format(",".join(self.extras_requested))
+            fullname = self._name_with_extras() + self.specifier
             p.text("<{} {} at {}>".format(type(self).__name__, fullname, hex(id(self))))
 
 
@@ -291,30 +303,42 @@ def gen_table(johnnydist, extra_cols=()):
     extra_cols = dict.fromkeys(extra_cols)  # de-dupe and preserve ordering
     extra_cols.pop("name", None)  # this is always included anyway, no need to ask for it
     johnnydist.log.debug("generating table")
-    for pre, _fill, node in anytree.RenderTree(johnnydist):
+    for prefix, _fill, dist in anytree.RenderTree(johnnydist):
         row = dict()
-        name = str(node.req)
-        if node.error:
-            name += " (FAILED)"
+        txt = str(dist.req)
+        if dist.error:
+            txt += " (FAILED)"
         if "specifier" in extra_cols:
-            name = wimpy.strip_suffix(name, str(node.specifier))
-        row["name"] = pre + name
+            txt = wimpy.strip_suffix(txt, str(dist.specifier))
+        row["name"] = prefix + txt
         for col in extra_cols:
-            val = getattr(node, col, "")
+            val = getattr(dist, col, "")
             if isinstance(val, list):
                 val = ", ".join(val)
             row[col] = val
         yield row
 
 
+def _detect_circular(dist):
+    # detects a circular dependency when traversing from here to the root node, and returns
+    # a chain of nodes in that case
+    chain = [dist]
+    for ancestor in reversed(dist.ancestors):
+        chain.append(ancestor)
+        if ancestor.name == dist.name:
+            if ancestor.extras_requested == dist.extras_requested:
+                return chain[::-1]
+
+
 def flatten_deps(johnnydist):
-    # TODO: add the check for infinite recursion in here (traverse parents)
     johnnydist.log.debug("resolving dep tree")
     dist_map = OrderedDefaultListDict()
     spec_map = defaultdict(str)
     extra_map = defaultdict(set)
     required_by_map = defaultdict(list)
     for dep in anytree.iterators.LevelOrderIter(johnnydist):
+        if dep.name == CircularMarker.glyph:
+            continue
         dist_map[dep.name].append(dep)
         spec_map[dep.name] = dep.req.specifier & spec_map[dep.name]
         extra_map[dep.name] |= set(dep.extras_requested)
@@ -433,4 +457,3 @@ def _get_info(dist_name, index_url=None, env=None, extra_index_url=None):
 
 # TODO: multi-line progress bar?
 # TODO: upload test dists to test PyPI index, document pip existing failure modes
-# TODO: don't infinitely recurse on circular dep tree

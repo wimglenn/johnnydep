@@ -416,7 +416,7 @@ def test_pprint(make_dist, mocker):
     mock_printer.text.reset_mock()
     jdist = JohnnyDist("jdtest[a]~=0.1.2")
     jdist._repr_pretty_(mock_printer, cycle=False)
-    pretty = "<JohnnyDist jdtest~=0.1.2[a] at 0xcafe>"
+    pretty = "<JohnnyDist jdtest[a]~=0.1.2 at 0xcafe>"
     mock_printer.text.assert_called_once_with(pretty)
     mock_printer.text.reset_mock()
     jdist._repr_pretty_(mock_printer, cycle=True)
