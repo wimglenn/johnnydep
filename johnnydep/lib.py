@@ -28,7 +28,7 @@ from johnnydep.compat import dict
 from johnnydep.compat import oyaml
 from johnnydep.util import CircularMarker
 
-__all__ = ["JohnnyDist", "gen_table", "flatten_deps", "has_error"]
+__all__ = ["JohnnyDist", "gen_table", "flatten_deps", "has_error", "JohnnyError"]
 
 
 logger = get_logger(__name__)
@@ -38,6 +38,10 @@ class OrderedDefaultListDict(dict):
     def __missing__(self, key):
         self[key] = value = []
         return value
+
+
+class JohnnyError(Exception):
+    pass
 
 
 class JohnnyDist(anytree.NodeMixin):
@@ -231,7 +235,7 @@ class JohnnyDist(anytree.NodeMixin):
             extras = ""
         version = self.version_latest_in_spec
         if version is None:
-            raise Exception("Can not pin because no version available is in spec")
+            raise JohnnyError("Can not pin because no version available is in spec")
         result = "{}{}=={}".format(self.project_name, extras, version)
         return result
 
@@ -279,7 +283,7 @@ class JohnnyDist(anytree.NodeMixin):
         elif format == "pinned":
             result = "\n".join([d["pinned"] for d in data])
         else:
-            raise Exception("Unsupported format")
+            raise JohnnyError("Unsupported format")
         return result
 
     serialize = serialise
@@ -349,13 +353,17 @@ def flatten_deps(johnnydist):
         extras = extra_map[name]
         required_by = list(dict.fromkeys(required_by_map[name]))  # order preserving de-dupe
         for dist in dists:
-            if dist.version_latest_in_spec in spec and set(dist.extras_requested) >= extras:
+            v = dist.version_latest_in_spec
+            if v is None:
+                msg = "Could not find satisfactory version for {}{}"
+                raise JohnnyError(msg.format(dist.name, dist.specifier))
+            if v in spec and set(dist.extras_requested) >= extras:
                 dist.required_by = required_by
                 johnnydist.log.info(
                     "resolved",
                     name=dist.name,
                     required_by=required_by,
-                    v=dist.version_latest_in_spec,
+                    v=v,
                     spec=str(spec) or "ANY",
                 )
                 yield dist
@@ -419,7 +427,7 @@ def _extract_metadata(whl_file):
     logger.debug("searching metadata", whl_file=whl_file)
     info = pkginfo.get_metadata(whl_file)
     if info is None:
-        raise Exception("failed to get metadata")
+        raise JohnnyError("failed to get metadata")
     data = {k.lower(): v for k,v in vars(info).items()}
     data.pop("filename", None)
     return data

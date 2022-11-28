@@ -8,6 +8,7 @@ from textwrap import dedent
 import pytest
 
 from johnnydep.lib import JohnnyDist
+from johnnydep.lib import JohnnyError
 from johnnydep.lib import flatten_deps
 
 
@@ -306,7 +307,7 @@ def test_serialiser_pinned(make_dist):
 def test_serialiser_unsupported(make_dist):
     make_dist()
     jdist = JohnnyDist("jdtest")
-    with pytest.raises(Exception) as cm:
+    with pytest.raises(JohnnyError) as cm:
         jdist.serialise(format="bogus")
     assert cm.value.args == ("Unsupported format",)
 
@@ -485,7 +486,7 @@ def test_license_parsing_unknown(make_dist):
 def test_metadata_cant_be_extracted(make_dist, mocker):
     make_dist()
     mocker.patch("pkginfo.get_metadata", return_value=None)
-    with pytest.raises(Exception("failed to get metadata")):
+    with pytest.raises(JohnnyError("failed to get metadata")):
         JohnnyDist("jdtest")
 
 
@@ -496,3 +497,11 @@ def test_ignore_errors(make_dist):
     assert dist.children[0].name == "distb1"
     assert dist.children[0].error is not None
     assert "No matching distribution found for distB1>=1.0" in dist.children[0].error.output.decode("utf-8")
+
+
+def test_flatten_failed(make_dist):
+    make_dist(name="dist1", install_requires=["dist2>0.2"])
+    make_dist(name="dist2", version="0.1")
+    dist = JohnnyDist("dist1", ignore_errors=True)
+    with pytest.raises(JohnnyError("Could not find satisfactory version for dist2>0.2")):
+        list(flatten_deps(dist))
