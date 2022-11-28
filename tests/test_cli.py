@@ -234,3 +234,22 @@ def test_circular_deptree(mocker, capsys, make_dist):
             │           └── ...  ... <circular dependency marker for pkg1 -> pkg2 -> pkg3 -> pkg1>
             └── quux             default text for metadata summary
     """)
+
+
+def test_circular_deptree_resolve(mocker, capsys, make_dist):
+    make_dist(name="pkg0", install_requires=["pkg1"], version="0.1")
+    make_dist(name="pkg1", install_requires=["pkg2", "quux"], version="0.2")
+    make_dist(name="pkg2", install_requires=["pkg3"], version="0.3")
+    make_dist(name="pkg3", install_requires=["pkg1"], version="0.4")
+    make_dist(name="quux")
+    mocker.patch("sys.argv", "johnnydep pkg0 -o pinned".split())
+    main()
+    out, err = capsys.readouterr()
+    assert out == dedent(
+        """\
+        pkg0==0.1
+        pkg1==0.2
+        pkg2==0.3
+        quux==0.1.2
+        pkg3==0.4
+    """)
