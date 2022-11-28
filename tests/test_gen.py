@@ -6,6 +6,7 @@ import os
 import pytest
 
 from johnnydep.lib import JohnnyDist
+from johnnydep.lib import JohnnyError
 
 
 here = os.path.dirname(__file__)
@@ -119,7 +120,7 @@ def test_index_file_without_checksum_in_urlfragment(add_to_index, mocker):
 def test_cant_pin():
     whl_fname = os.path.join(here, "vanilla-0.1.2-py2.py3-none-any.whl")
     jdist = JohnnyDist(whl_fname)
-    with pytest.raises(Exception) as cm:
+    with pytest.raises(JohnnyError) as cm:
         jdist.pinned
     assert str(cm.value) == "Can not pin because no version available is in spec"
 
