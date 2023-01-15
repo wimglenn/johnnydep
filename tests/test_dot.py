@@ -1,6 +1,7 @@
 from textwrap import dedent
 
 from johnnydep.lib import JohnnyDist
+from johnnydep.dot import jd2dot
 
 
 def test_dot_export(make_dist):
@@ -20,6 +21,30 @@ def test_dot_export(make_dist):
             "Extra";
             "parent[x]" -> "child" [label=">0.1"];
             "parent[x]" -> "Extra";
+        }
+        """
+    ).strip()
+    assert actual == expected
+
+
+def test_nodupes(make_dist):
+    make_dist(name="root", install_requires=["dep1", "dep2"])
+    make_dist(name="dep1", install_requires=["leaf"])
+    make_dist(name="dep2", install_requires=["leaf"])
+    make_dist(name="leaf")
+    dist = JohnnyDist("root")
+    actual = jd2dot(dist, comment=None)
+    expected = dedent(
+        """
+        digraph root {
+            "root";
+            "dep1";
+            "leaf";
+            "dep2";
+            "root" -> "dep1";
+            "root" -> "dep2";
+            "dep1" -> "leaf";
+            "dep2" -> "leaf";
         }
         """
     ).strip()
