@@ -1,5 +1,7 @@
 from anytree.exporter import DotExporter
 
+from johnnydep.compat import dict
+
 
 def nodenamefunc(node):
     return node._name_with_extras(attr="project_name")
