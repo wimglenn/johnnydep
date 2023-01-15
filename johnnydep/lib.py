@@ -67,7 +67,9 @@ class JohnnyDist(anytree.NodeMixin):
             self.req = pkg_resources.Requirement.parse(self.name + sep + extras + self.specifier)
             self.import_names = _discover_import_names(fname)
             self.metadata = _extract_metadata(fname)
+            self._from_fname = os.path.abspath(fname)
         else:
+            self._from_fname = None
             self.req = pkg_resources.Requirement.parse(req_string)
             self.name = canonicalize_name(self.req.name)
             self.specifier = str(self.req.specifier)
@@ -182,12 +184,24 @@ class JohnnyDist(anytree.NodeMixin):
 
     @cached_property
     def versions_available(self):
-        return pipper.get_versions(
+        result = pipper.get_versions(
             self.project_name,
             index_url=self.index_url,
             env=self.env,
             extra_index_url=self.extra_index_url,
         )
+        if self._from_fname is not None:
+            raw_version = os.path.basename(self._from_fname).split("-")[1]
+            local_version = canonicalize_version(raw_version)
+            version_key = pkg_resources.parse_version(local_version)
+            if local_version not in result:
+                # when we're Python 3.10+ only, can use bisect.insort instead here
+                i = 0
+                for i, v in enumerate(result):
+                    if version_key > pkg_resources.parse_version(v):
+                        break
+                result.insert(i, local_version)
+        return result
 
     @cached_property
     def version_installed(self):
@@ -252,10 +266,15 @@ class JohnnyDist(anytree.NodeMixin):
 
     @property
     def download_link(self):
+        if self._from_fname is not None:
+            return "file://{}".format(self._from_fname)
         return self._best.get("url")
 
     @property
     def checksum(self):
+        if self._from_fname is not None:
+            md5 = pipper.compute_checksum(self._from_fname, algorithm="md5")
+            return "md5={}".format(md5)
         return self._best.get("checksum")
 
     def serialise(self, fields=("name", "summary"), recurse=True, format=None):

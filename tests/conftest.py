@@ -129,7 +129,11 @@ def add_to_index():
 @pytest.fixture
 def make_dist(tmp_path, add_to_index):
     def f(**kwargs):
-        return make_wheel(scratch_dir=str(tmp_path), callback=add_to_index, **kwargs)
+        if "callback" not in kwargs:
+            kwargs["callback"] = add_to_index
+        if "scratch_dir" not in kwargs:
+            kwargs["scratch_dir"] = str(tmp_path)
+        return make_wheel(**kwargs)
 
     return f
 

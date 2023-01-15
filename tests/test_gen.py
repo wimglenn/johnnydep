@@ -117,9 +117,10 @@ def test_index_file_without_checksum_in_urlfragment(add_to_index, mocker):
     assert jdist.checksum == "md5=8a20520dcb1b7a729b827a2c4d75a0b6"
 
 
-def test_cant_pin():
-    whl_fname = os.path.join(here, "vanilla-0.1.2-py2.py3-none-any.whl")
-    jdist = JohnnyDist(whl_fname)
+def test_cant_pin(make_dist, mocker):
+    make_dist(name="cantpin", version="0.6")
+    jdist = JohnnyDist("cantpin")
+    mocker.patch.object(jdist, "versions_available", [])
     with pytest.raises(JohnnyError) as cm:
         jdist.pinned
     assert str(cm.value) == "Can not pin because no version available is in spec"
