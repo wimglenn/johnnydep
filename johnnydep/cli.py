@@ -51,7 +51,7 @@ def main(argv=None, stdout=None):
     parser.add_argument(
         "--output-format",
         "-o",
-        choices=["human", "json", "yaml", "python", "toml", "pinned"],
+        choices=["human", "json", "yaml", "python", "toml", "pinned", "dot"],
         default="human",
         help="default: %(default)s",
     )

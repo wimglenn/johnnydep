@@ -26,6 +26,7 @@ from wimpy import cached_property
 from johnnydep import pipper
 from johnnydep.compat import dict
 from johnnydep.compat import oyaml
+from johnnydep.dot import jd2dot
 from johnnydep.util import CircularMarker
 
 __all__ = ["JohnnyDist", "gen_table", "flatten_deps", "has_error", "JohnnyError"]
@@ -282,14 +283,16 @@ class JohnnyDist(anytree.NodeMixin):
             result = "\n".join([toml.dumps(d) for d in data])
         elif format == "pinned":
             result = "\n".join([d["pinned"] for d in data])
+        elif format == "dot":
+            result = jd2dot(self)
         else:
             raise JohnnyError("Unsupported format")
         return result
 
     serialize = serialise
 
-    def _name_with_extras(self):
-        result = self.name
+    def _name_with_extras(self, attr="name"):
+        result = getattr(self, attr)
         if self.extras_requested:
             result += "[{}]".format(",".join(self.extras_requested))
         return result
