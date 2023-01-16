@@ -198,7 +198,7 @@ class JohnnyDist(anytree.NodeMixin):
                 # when we're Python 3.10+ only, can use bisect.insort instead here
                 i = 0
                 for i, v in enumerate(result):
-                    if version_key > pkg_resources.parse_version(v):
+                    if version_key < pkg_resources.parse_version(v):
                         break
                 result.insert(i, local_version)
         return result

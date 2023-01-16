@@ -517,9 +517,12 @@ def test_local_whl_pinned(make_dist):
 
 
 def test_local_whl_json(make_dist):
-    dist, dist_path, md5 = make_dist(name="loc", callback=None)
+    make_dist(name="loc", version="0.1.1")
+    dist, dist_path, md5 = make_dist(name="loc", version="0.1.2", callback=None)
+    make_dist(name="loc", version="0.1.3")
     dist = JohnnyDist(dist_path)
-    txt = dist.serialise(format="json", fields=["download_link", "checksum"]).strip()
+    fields = ["download_link", "checksum", "versions_available"]
+    txt = dist.serialise(format="json", fields=fields).strip()
     [result] = json.loads(txt)
     algo, checksum = result["checksum"].split("=")
     assert algo == "md5"
@@ -527,3 +530,4 @@ def test_local_whl_json(make_dist):
     link = result["download_link"]
     assert link.startswith("file://")
     assert link.endswith("loc-0.1.2-py2.py3-none-any.whl")
+    assert result["versions_available"] == ["0.1.1", "0.1.2", "0.1.3"]
