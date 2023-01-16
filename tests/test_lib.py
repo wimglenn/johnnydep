@@ -1,6 +1,7 @@
 # coding: utf-8
 from __future__ import unicode_literals
 
+import json
 import os
 from subprocess import CalledProcessError
 from textwrap import dedent
@@ -505,3 +506,28 @@ def test_flatten_failed(make_dist):
     dist = JohnnyDist("dist1", ignore_errors=True)
     with pytest.raises(JohnnyError("Could not find satisfactory version for dist2>0.2")):
         list(flatten_deps(dist))
+
+
+def test_local_whl_pinned(make_dist):
+    # https://github.com/wimglenn/johnnydep/issues/105
+    dist, dist_path, md5 = make_dist(name="loc", version="1.2.3", callback=None)
+    dist = JohnnyDist(dist_path)
+    txt = dist.serialise(format="pinned").strip()
+    assert txt == "loc==1.2.3"
+
+
+def test_local_whl_json(make_dist):
+    make_dist(name="loc", version="0.1.1")
+    dist, dist_path, md5 = make_dist(name="loc", version="0.1.2", callback=None)
+    make_dist(name="loc", version="0.1.3")
+    dist = JohnnyDist(dist_path)
+    fields = ["download_link", "checksum", "versions_available"]
+    txt = dist.serialise(format="json", fields=fields).strip()
+    [result] = json.loads(txt)
+    algo, checksum = result["checksum"].split("=")
+    assert algo == "md5"
+    assert checksum == md5
+    link = result["download_link"]
+    assert link.startswith("file://")
+    assert link.endswith("loc-0.1.2-py2.py3-none-any.whl")
+    assert result["versions_available"] == ["0.1.1", "0.1.2", "0.1.3"]
