@@ -11,6 +11,7 @@ import pytest
 import whl
 from wimpy import working_directory
 
+import johnnydep
 from johnnydep import lib
 from johnnydep import pipper
 
@@ -28,6 +29,11 @@ def expire_caches():
 @pytest.fixture(autouse=True)
 def disable_logconfig(mocker):
     mocker.patch("johnnydep.logs.logging.config.dictConfig")
+
+
+@pytest.fixture(autouse=True, scope="session")
+def freeze_version():
+    johnnydep.__version__ = "1.0"
 
 
 @pytest.fixture(autouse=True)
