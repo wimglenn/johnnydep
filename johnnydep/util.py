@@ -48,4 +48,4 @@ class CircularMarker(anytree.NodeMixin):
 
     def __getattr__(self, name):
         if name.startswith("_"):
-            return super(CircularMarker, self).__getattr__(self, name)
+            return super(CircularMarker, self).__getattribute__(name)

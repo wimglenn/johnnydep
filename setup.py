@@ -1,8 +1,14 @@
 from setuptools import setup
 
+with open("johnnydep/__init__.py") as f:
+    for line in f:
+        if line.startswith("__version__ = "):
+            version = str(line.split()[-1].strip('"'))
+            break
+
 setup(
     name="johnnydep",
-    version="1.17.2",
+    version=version,
     description="Display dependency tree of Python distribution",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
