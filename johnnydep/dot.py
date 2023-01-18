@@ -37,5 +37,9 @@ def jd2dot(dist, comment=None):
             edge = '"{}" -> "{}"'.format(parent_node_name, node_name)
             edges.append(edge + label + ";")
     edges = "\n    ".join(edges)
+    if not edges:
+        # project with no dependencies - it's just a single node
+        node_name = dist._name_with_extras(attr="project_name")
+        edges = '"{}";'.format(node_name)
     result = template % {"comment": comment, "title": title, "edges": edges}
     return result.strip()

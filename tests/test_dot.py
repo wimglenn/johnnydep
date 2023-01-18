@@ -62,3 +62,17 @@ def test_circular_graph(make_dist):
         """
     ).strip()
     assert actual == expected
+
+
+def test_graph_with_no_edges(make_dist):
+    make_dist(name="lonely")
+    dist = JohnnyDist("lonely")
+    actual = jd2dot(dist, comment="")
+    expected = dedent(
+        """
+        strict digraph lonely {
+            "lonely";
+        }
+        """
+    ).strip()
+    assert actual == expected
