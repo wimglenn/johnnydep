@@ -302,6 +302,8 @@ class JohnnyDist(anytree.NodeMixin):
                 table = [next(table)]
             tabulate.PRESERVE_WHITESPACE = True
             return tabulate.tabulate(table, headers="keys")
+        if format == "dot":
+            return jd2dot(self)
         if recurse and self.requires:
             deps = flatten_deps(self)
             next(deps)  # skip over root
