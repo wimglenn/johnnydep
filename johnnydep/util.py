@@ -8,9 +8,13 @@ from subprocess import check_output
 from subprocess import CalledProcessError
 
 import anytree
+from structlog import get_logger
 
 from johnnydep import env_check
 from johnnydep.compat import JSONDecodeError
+
+
+log = get_logger(__name__)
 
 
 def python_interpreter(path):
@@ -32,6 +36,8 @@ class FakeDist(anytree.NodeMixin):
         self.name = glyph
         self.summary = summary
         self.parent = parent
+        self._max_depth = None
+        self.log = log
 
     def __getattr__(self, name):
         if name.startswith("_"):

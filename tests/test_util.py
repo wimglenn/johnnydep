@@ -9,6 +9,7 @@ from johnnydep.cli import FIELDS
 from johnnydep.compat import text_type
 from johnnydep.util import CircularMarker
 from johnnydep.util import python_interpreter
+from johnnydep.util import FakeDist
 
 
 def test_bad_python_interpreter_triggers_argparse_error(mocker):
