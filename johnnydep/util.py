@@ -26,7 +26,19 @@ def python_interpreter(path):
     return frozen
 
 
-class CircularMarker(anytree.NodeMixin):
+class FakeDist(anytree.NodeMixin):
+    def __init__(self, summary, parent, glyph):
+        self.req = glyph
+        self.name = glyph
+        self.summary = summary
+        self.parent = parent
+
+    def __getattr__(self, name):
+        if name.startswith("_"):
+            return super(FakeDist, self).__getattribute__(name)
+
+
+class CircularMarker(FakeDist):
     """
     This is like a "fake" JohnnyDist instance which is used
     to render a node in circular dep trees like:
@@ -39,15 +51,23 @@ class CircularMarker(anytree.NodeMixin):
     Everything is null except the req/name which is "..." and
     the metadata summary, which can be provided by the caller
     """
-    glyph = "..."
+    def __init__(self, summary, parent, glyph="..."):
+        super(CircularMarker, self).__init__(summary, parent, glyph)
 
-    def __init__(self, summary, parent):
-        self.req = CircularMarker.glyph
-        self.name = CircularMarker.glyph
-        self.summary = summary
-        self.parent = parent
-        self.log = structlog.get_logger()
 
-    def __getattr__(self, name):
-        if name.startswith("_"):
-            return super(CircularMarker, self).__getattribute__(name)
+class UnknownMarker(FakeDist):
+    """
+    This is like a "fake" JohnnyDist instance which is used
+    to render nodes in pruned dep trees like:
+
+    a
+    └── b
+        └── c
+            ├── ???
+            └── ???
+
+    Everything is null except the req/name which is "???" and
+    the metadata summary, which can be provided by the caller
+    """
+    def __init__(self, summary, parent, glyph="???"):
+        super(UnknownMarker, self).__init__(summary, parent, glyph)

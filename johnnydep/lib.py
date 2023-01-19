@@ -28,6 +28,8 @@ from johnnydep.compat import dict
 from johnnydep.compat import oyaml
 from johnnydep.dot import jd2dot
 from johnnydep.util import CircularMarker
+from johnnydep.util import UnknownMarker
+from johnnydep.util import FakeDist
 
 __all__ = ["JohnnyDist", "gen_table", "flatten_deps", "has_error", "JohnnyError"]
 
@@ -46,7 +48,7 @@ class JohnnyError(Exception):
 
 
 class JohnnyDist(anytree.NodeMixin):
-    def __init__(self, req_string, parent=None, index_url=None, env=None, extra_index_url=None, ignore_errors=False):
+    def __init__(self, req_string, parent=None, index_url=None, env=None, extra_index_url=None, ignore_errors=False, max_depth=None):
         log = self.log = logger.bind(dist=req_string)
         log.info("init johnnydist", parent=parent and str(parent.req))
         self.parent = parent
@@ -93,8 +95,10 @@ class JohnnyDist(anytree.NodeMixin):
             if env:
                 log.debug("root node target env", **dict(env))
             self.required_by = []
+            self._max_depth = max_depth
         else:
             self.required_by = [str(parent.req)]
+            self._max_depth = parent._max_depth
 
     @property
     def requires(self):
@@ -128,6 +132,14 @@ class JohnnyDist(anytree.NodeMixin):
     @property
     def children(self):
         """my immediate deps, as a tuple of johnnydists"""
+        if not self._recursed and self._max_depth is not None and self.depth >= self._max_depth:
+            for dep in self.requires:
+                self.log.debug("max depth exceeded, dep tree will be pruned here", max_depth=self._max_depth, dep=dep)
+                UnknownMarker(
+                    summary="??? <max depth marker at depth {}>".format(self._max_depth + 1),
+                    parent=self,
+                )
+            self._recursed = True
         if not self._recursed:
             self.log.debug("populating dep tree")
             circular_deps = _detect_circular(self)
@@ -328,8 +340,12 @@ class JohnnyDist(anytree.NodeMixin):
 def gen_table(johnnydist, extra_cols=()):
     extra_cols = dict.fromkeys(extra_cols)  # de-dupe and preserve ordering
     extra_cols.pop("name", None)  # this is always included anyway, no need to ask for it
-    johnnydist.log.debug("generating table")
-    for prefix, _fill, dist in anytree.RenderTree(johnnydist):
+    if johnnydist._max_depth is not None:
+        maxlevel = johnnydist._max_depth + 2
+    else:
+        maxlevel = None
+    johnnydist.log.debug("generating table", maxlevel=maxlevel)
+    for prefix, _fill, dist in anytree.RenderTree(johnnydist, maxlevel=maxlevel):
         row = dict()
         txt = str(dist.req)
         if dist.error:
@@ -363,7 +379,7 @@ def flatten_deps(johnnydist):
     extra_map = defaultdict(set)
     required_by_map = defaultdict(list)
     for dep in anytree.iterators.LevelOrderIter(johnnydist):
-        if dep.name == CircularMarker.glyph:
+        if isinstance(dep, FakeDist):
             continue
         dist_map[dep.name].append(dep)
         spec_map[dep.name] = dep.req.specifier & spec_map[dep.name]

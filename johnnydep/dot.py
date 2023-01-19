@@ -2,7 +2,7 @@ from anytree import LevelOrderIter
 
 import johnnydep
 from johnnydep.compat import dict
-from johnnydep.util import CircularMarker
+from johnnydep.util import FakeDist
 
 
 template = """\
@@ -27,7 +27,7 @@ def jd2dot(dist, comment=None):
     title = dist.project_name.replace("-", "_")
     edges = []
     for node in LevelOrderIter(dist):
-        if isinstance(node, CircularMarker):
+        if isinstance(node, FakeDist):
             # todo - render cycles differently?
             continue
         if node.parent is not None:

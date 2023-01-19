@@ -62,6 +62,11 @@ def main(argv=None, stdout=None):
         action="store_false",
     )
     parser.add_argument(
+        "--max-depth",
+        help="Recurse only to a limited number of levels.",
+        type=int,
+    )
+    parser.add_argument(
         "--fields",
         "-f",
         nargs="*",
@@ -86,6 +91,7 @@ def main(argv=None, stdout=None):
         env=args.env,
         extra_index_url=args.extra_index_url,
         ignore_errors=args.ignore_errors,
+        max_depth=args.max_depth,
     )
     rendered = dist.serialise(
         fields=args.fields,
