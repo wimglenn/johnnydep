@@ -281,6 +281,8 @@ class JohnnyDist(anytree.NodeMixin):
         if format == "pinned":
             # user-specified fields are ignored/invalid in this case
             fields = ("pinned",)
+        if format == "dot":
+            return jd2dot(self)
         data = [dict([(f, getattr(self, f, None)) for f in fields])]
         if format == "human":
             table = gen_table(self, extra_cols=fields)
@@ -302,8 +304,6 @@ class JohnnyDist(anytree.NodeMixin):
             result = "\n".join([toml.dumps(d) for d in data])
         elif format == "pinned":
             result = "\n".join([d["pinned"] for d in data])
-        elif format == "dot":
-            result = jd2dot(self)
         else:
             raise JohnnyError("Unsupported format")
         return result

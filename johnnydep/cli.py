@@ -57,7 +57,7 @@ def main(argv=None, stdout=None):
     )
     parser.add_argument(
         "--no-deps",
-        help="Don't recurse the dependency tree. Has no effect for output format 'human'",
+        help="Don't recurse the dependency tree",
         dest="recurse",
         action="store_false",
     )
@@ -87,6 +87,11 @@ def main(argv=None, stdout=None):
         extra_index_url=args.extra_index_url,
         ignore_errors=args.ignore_errors,
     )
-    print(dist.serialise(fields=args.fields, format=args.output_format, recurse=args.recurse), file=stdout)
+    rendered = dist.serialise(
+        fields=args.fields,
+        format=args.output_format,
+        recurse=args.recurse,
+    )
+    print(rendered, file=stdout)
     if (args.recurse and has_error(dist)) or (not args.recurse and dist.error is not None):
         sys.exit(1)

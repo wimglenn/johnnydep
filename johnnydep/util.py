@@ -2,6 +2,7 @@
 from __future__ import unicode_literals
 
 import json
+import structlog
 from argparse import ArgumentTypeError
 from subprocess import check_output
 from subprocess import CalledProcessError
@@ -45,6 +46,7 @@ class CircularMarker(anytree.NodeMixin):
         self.name = CircularMarker.glyph
         self.summary = summary
         self.parent = parent
+        self.log = structlog.get_logger()
 
     def __getattr__(self, name):
         if name.startswith("_"):
