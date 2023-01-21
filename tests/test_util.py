@@ -51,7 +51,10 @@ def test_good_python_env():
     ]
 
 
-def test_placeholder_serializes():
+def test_placeholder_serializes(make_dist):
     # this just checks that the placeholder can render to text without issue
-    dist = CircularMarker(summary=".", parent=None)
-    JohnnyDist.serialise(dist, fields=FIELDS, format="human")
+    make_dist()
+    dist = JohnnyDist("jdtest")
+    CircularMarker(summary=".", parent=dist)
+    txt = dist.serialise(fields=FIELDS, format="human")
+    assert txt
