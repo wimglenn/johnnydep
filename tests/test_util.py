@@ -4,7 +4,10 @@ from subprocess import CalledProcessError
 
 import pytest
 
+from johnnydep import JohnnyDist
+from johnnydep.cli import FIELDS
 from johnnydep.compat import text_type
+from johnnydep.util import CircularMarker
 from johnnydep.util import python_interpreter
 
 
@@ -46,3 +49,12 @@ def test_good_python_env():
         "sys_platform",
         "wheel_version",
     ]
+
+
+def test_placeholder_serializes(make_dist):
+    # this just checks that the placeholder can render to text without issue
+    make_dist()
+    dist = JohnnyDist("jdtest")
+    CircularMarker(summary=".", parent=dist)
+    txt = dist.serialise(fields=FIELDS, format="human")
+    assert txt

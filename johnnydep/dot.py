@@ -1,12 +1,13 @@
 from anytree import LevelOrderIter
 
 import johnnydep
+from johnnydep.compat import dict
 from johnnydep.util import CircularMarker
 
 
 template = """\
 %(comment)s
-strict digraph %(title)s {
+digraph %(title)s {
     %(edges)s
 }
 """
@@ -36,6 +37,7 @@ def jd2dot(dist, comment=None):
             label = ' [label="{}"]'.format(spec) if spec else ""
             edge = '"{}" -> "{}"'.format(parent_node_name, node_name)
             edges.append(edge + label + ";")
+    edges = list(dict.fromkeys(edges))  # order-preserving de-dupe
     edges = "\n    ".join(edges)
     if not edges:
         # project with no dependencies - it's just a single node
