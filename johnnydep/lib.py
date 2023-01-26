@@ -151,6 +151,10 @@ class JohnnyDist(anytree.NodeMixin):
 
     @property
     def homepage(self):
+        for project_url in self.metadata.get("project_urls", []):
+            if project_url.lower().startswith("homepage, "):
+                _, url = project_url.split(", ", 1)
+                return url
         try:
             return self.metadata["home_page"]
         except KeyError:

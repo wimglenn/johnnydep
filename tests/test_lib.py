@@ -125,6 +125,12 @@ def test_homepage(make_dist):
     assert jdist.homepage == "https://www.example.org/default"
 
 
+def test_homepage_from_project_urls(make_dist):
+    make_dist(project_url=["url1, https://blah", "homepage, https://www.example.org/proj_url"])
+    jdist = JohnnyDist("jdtest")
+    assert jdist.homepage == "https://www.example.org/proj_url"
+
+
 def test_no_homepage(make_dist):
     make_dist(url=None)
     jdist = JohnnyDist("jdtest")
