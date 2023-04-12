@@ -10,11 +10,11 @@ import sys
 import tempfile
 from argparse import ArgumentParser
 from glob import glob
+from packaging import requirements
 from subprocess import CalledProcessError
 from subprocess import check_output
 from subprocess import STDOUT
 
-import pkg_resources
 from cachetools import cached
 from cachetools.func import ttl_cache
 from cachetools.keys import hashkey
@@ -108,7 +108,7 @@ def _download_dist(url, scratch_file, index_url, extra_index_url):
 
 @ttl_cache(maxsize=512, ttl=60 * 5)
 def get_versions(dist_name, index_url=None, env=None, extra_index_url=None):
-    bare_name = pkg_resources.Requirement.parse(dist_name).name
+    bare_name = requirements.Requirement(dist_name).name
     log.debug("checking versions available", dist=bare_name)
     args = _get_wheel_args(index_url, env, extra_index_url) + [dist_name + "==showmethemoney"]
     try:

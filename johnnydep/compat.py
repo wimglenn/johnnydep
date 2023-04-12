@@ -59,3 +59,9 @@ else:
     oyaml.add_representer(
         unicode, lambda d, s: oyaml.ScalarNode(tag="tag:yaml.org,2002:str", value=s)
     )
+
+
+try:
+    from importlib.metadata import distribution, PackageNotFoundError
+except ImportError:
+    from importlib_metadata import distribution, PackageNotFoundError

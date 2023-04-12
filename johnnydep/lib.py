@@ -11,21 +11,24 @@ from tempfile import mkdtemp
 from zipfile import ZipFile
 
 import anytree
-import pkg_resources
 import pkginfo
 import toml
 import tabulate
 import wimpy
 from cachetools.func import ttl_cache
+from packaging import requirements
 from packaging.markers import default_environment
 from packaging.utils import canonicalize_name
 from packaging.utils import canonicalize_version
+from packaging.version import parse as parse_version
 from structlog import get_logger
 from wimpy import cached_property
 
 from johnnydep import pipper
 from johnnydep.compat import dict
+from johnnydep.compat import distribution
 from johnnydep.compat import oyaml
+from johnnydep.compat import PackageNotFoundError
 from johnnydep.dot import jd2dot
 from johnnydep.util import CircularMarker
 
@@ -64,13 +67,13 @@ class JohnnyDist(anytree.NodeMixin):
             parts = os.path.basename(fname).split("-")
             self.name = canonicalize_name(parts[0])
             self.specifier = "==" + canonicalize_version(parts[1])
-            self.req = pkg_resources.Requirement.parse(self.name + sep + extras + self.specifier)
+            self.req = requirements.Requirement(self.name + sep + extras + self.specifier)
             self.import_names = _discover_import_names(fname)
             self.metadata = _extract_metadata(fname)
             self._from_fname = os.path.abspath(fname)
         else:
             self._from_fname = None
-            self.req = pkg_resources.Requirement.parse(req_string)
+            self.req = requirements.Requirement(req_string)
             self.name = canonicalize_name(self.req.name)
             self.specifier = str(self.req.specifier)
             log.debug("fetching best wheel")
@@ -108,7 +111,7 @@ class JohnnyDist(anytree.NodeMixin):
         else:
             env_data = dict(self.env)
         for req_str in all_requires:
-            req = pkg_resources.Requirement.parse(req_str)
+            req = requirements.Requirement(req_str)
             req_short, _sep, _marker = str(req).partition(";")
             if req.marker is None:
                 # unconditional dependency
@@ -197,12 +200,12 @@ class JohnnyDist(anytree.NodeMixin):
         if self._from_fname is not None:
             raw_version = os.path.basename(self._from_fname).split("-")[1]
             local_version = canonicalize_version(raw_version)
-            version_key = pkg_resources.parse_version(local_version)
+            version_key = parse_version(local_version)
             if local_version not in result:
                 # when we're Python 3.10+ only, can use bisect.insort instead here
                 i = 0
                 for i, v in enumerate(result):
-                    if version_key < pkg_resources.parse_version(v):
+                    if version_key < parse_version(v):
                         break
                 result.insert(i, local_version)
         return result
@@ -211,8 +214,8 @@ class JohnnyDist(anytree.NodeMixin):
     def version_installed(self):
         self.log.debug("checking if installed already")
         try:
-            dist = pkg_resources.get_distribution(self.name)
-        except pkg_resources.DistributionNotFound:
+            dist = distribution(self.name)
+        except PackageNotFoundError:
             self.log.debug("not installed")
             return
         self.log.debug("existing installation found", version=dist.version)
@@ -238,7 +241,7 @@ class JohnnyDist(anytree.NodeMixin):
     def extras_available(self):
         extras = {x for x in self.metadata.get("provides_extras", []) if x}
         for req_str in self.metadata.get("requires_dist", []):
-            req = pkg_resources.Requirement.parse(req_str)
+            req = requirements.Requirement(req_str)
             extras |= set(re.findall(r'extra == "(.*?)"', str(req.marker)))
         return sorted(extras)
 
