@@ -22,15 +22,15 @@ setup(
         "structlog",
         "tabulate",
         "wimpy",
-        "colorama",  # pretty output for structlog
+        "colorama ; python_version<'3.7' or platform_system=='Windows'",  # structlog
         "cachetools",
         "oyaml",
         "toml",
         "pip",
         "packaging >= 17",
         "wheel >= 0.32.0",
-        "setuptools >= 38.3",  # for pkg_resources
         "pkginfo >= 1.4.2",
+        "importlib_resources ; python_version < '3.7'",
     ],
     entry_points={
         "console_scripts": [
