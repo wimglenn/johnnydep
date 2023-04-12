@@ -22,6 +22,7 @@ setup(
         "structlog",
         "tabulate",
         "wimpy",
+        "colorama ; python_version<'3.7' or platform_system=='Windows'",  # structlog
         "cachetools",
         "oyaml",
         "toml",
