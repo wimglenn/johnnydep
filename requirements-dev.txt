@@ -5,5 +5,6 @@ pytest-cov
 pytest-raisin
 pytest-socket
 coverage
+wheel
 whl >= 0.0.3
 wimpy == 0.3  # just something we can pin
