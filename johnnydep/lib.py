@@ -5,10 +5,10 @@ import json
 import os
 import re
 import subprocess
-import zipfile
 from collections import defaultdict
 from shutil import rmtree
 from tempfile import mkdtemp
+from zipfile import ZipFile
 
 import anytree
 import pkginfo
@@ -30,6 +30,7 @@ from johnnydep.compat import distribution
 from johnnydep.compat import oyaml
 from johnnydep.compat import PackageNotFoundError
 from johnnydep.compat import PathDistribution
+from johnnydep.compat import zipfile_path
 from johnnydep.dot import jd2dot
 from johnnydep.util import CircularMarker
 
@@ -424,7 +425,7 @@ def flatten_deps(johnnydist):
 def _discover_import_names(whl_file):
     log = logger.bind(whl_file=whl_file)
     log.debug("finding import names")
-    zf = zipfile.ZipFile(file=whl_file)
+    zf = ZipFile(file=whl_file)
     namelist = zf.namelist()
     try:
         [top_level_fname] = [x for x in namelist if x.endswith("top_level.txt")]
@@ -460,8 +461,8 @@ def _discover_entry_points(whl_file):
     log.debug("finding entry points")
     parts = os.path.basename(whl_file).split("-")
     metadata_path = "-".join(parts[:2]) + ".dist-info/"
-    zf = zipfile.Path(whl_file, metadata_path)
-    path_dist = PathDistribution(zf)
+    zf_path = zipfile_path(whl_file, metadata_path)
+    path_dist = PathDistribution(zf_path)
     return path_dist.entry_points
 
 
