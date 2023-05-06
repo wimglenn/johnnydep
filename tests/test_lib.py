@@ -537,3 +537,15 @@ def test_local_whl_json(make_dist):
     assert link.startswith("file://")
     assert link.endswith("loc-0.1.2-py2.py3-none-any.whl")
     assert result["versions_available"] == ["0.1.1", "0.1.2", "0.1.3"]
+
+
+def test_entry_points(make_dist):
+    # https://packaging.python.org/en/latest/specifications/entry-points/
+    entry_points = {"console_scripts": ["my-script = mypkg.mymod:foo"]}
+    make_dist(name="example", entry_points=entry_points)
+    dist = JohnnyDist("example")
+    [ep] = dist.entry_points
+    assert ep.name == "my-script"
+    assert ep.group == "console_scripts"
+    assert ep.value == "mypkg.mymod:foo"
+    assert dist.console_scripts == "my-script = mypkg.mymod:foo"

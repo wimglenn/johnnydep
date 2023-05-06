@@ -31,6 +31,7 @@ setup(
         "wheel >= 0.32.0",
         "pkginfo >= 1.4.2",
         "importlib_metadata ; python_version < '3.7'",
+        "zipfile39 ; python_version < '3.9'",
     ],
     entry_points={
         "console_scripts": [

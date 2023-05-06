@@ -62,6 +62,12 @@ else:
 
 
 try:
-    from importlib.metadata import distribution, PackageNotFoundError
+    from importlib.metadata import distribution, PackageNotFoundError, PathDistribution
 except ImportError:
-    from importlib_metadata import distribution, PackageNotFoundError
+    from importlib_metadata import distribution, PackageNotFoundError, PathDistribution
+
+
+try:
+    from zipfile import Path as zipfile_path
+except ImportError:
+    from zipfile39 import Path as zipfile_path

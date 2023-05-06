@@ -29,6 +29,8 @@ from johnnydep.compat import dict
 from johnnydep.compat import distribution
 from johnnydep.compat import oyaml
 from johnnydep.compat import PackageNotFoundError
+from johnnydep.compat import PathDistribution
+from johnnydep.compat import zipfile_path
 from johnnydep.dot import jd2dot
 from johnnydep.util import CircularMarker
 
@@ -70,6 +72,7 @@ class JohnnyDist(anytree.NodeMixin):
             self.req = requirements.Requirement(self.name + sep + extras + self.specifier)
             self.import_names = _discover_import_names(fname)
             self.metadata = _extract_metadata(fname)
+            self.entry_points = _discover_entry_points(fname)
             self._from_fname = os.path.abspath(fname)
         else:
             self._from_fname = None
@@ -78,7 +81,7 @@ class JohnnyDist(anytree.NodeMixin):
             self.specifier = str(self.req.specifier)
             log.debug("fetching best wheel")
             try:
-                self.import_names, self.metadata = _get_info(
+                self.import_names, self.metadata, self.entry_points = _get_info(
                     dist_name=req_string,
                     index_url=index_url,
                     env=env,
@@ -89,6 +92,7 @@ class JohnnyDist(anytree.NodeMixin):
                     raise
                 self.import_names = None
                 self.metadata = {}
+                self.entry_points = None
                 self.error = err
 
         self.extras_requested = sorted(self.req.extras)
@@ -248,6 +252,11 @@ class JohnnyDist(anytree.NodeMixin):
     @property
     def project_name(self):
         return self.metadata.get("name", self.name)
+
+    @property
+    def console_scripts(self):
+        eps = [ep for ep in self.entry_points or [] if ep.group == "console_scripts"]
+        return ", ".join(["{} = {}".format(ep.name, ep.value) for ep in eps])
 
     @property
     def pinned(self):
@@ -420,9 +429,9 @@ def flatten_deps(johnnydist):
 
 def _discover_import_names(whl_file):
     log = logger.bind(whl_file=whl_file)
-    logger.debug("finding import names")
-    zipfile = ZipFile(file=whl_file)
-    namelist = zipfile.namelist()
+    log.debug("finding import names")
+    zf = ZipFile(file=whl_file)
+    namelist = zf.namelist()
     try:
         [top_level_fname] = [x for x in namelist if x.endswith("top_level.txt")]
     except ValueError:
@@ -447,13 +456,25 @@ def _discover_import_names(whl_file):
                             # found a top level module
                             public_names.append(name)
     else:
-        all_names = zipfile.read(top_level_fname).decode("utf-8").strip().splitlines()
+        all_names = zf.read(top_level_fname).decode("utf-8").strip().splitlines()
         public_names = [n for n in all_names if not n.startswith("_")]
-    return public_names
+    result = [n.replace("/", ".") for n in public_names]
+    return result
+
+
+def _discover_entry_points(whl_file):
+    log = logger.bind(whl_file=whl_file)
+    log.debug("finding entry points")
+    parts = os.path.basename(whl_file).split("-")
+    metadata_path = "-".join(parts[:2]) + ".dist-info/"
+    zf_path = zipfile_path(whl_file, metadata_path)
+    path_dist = PathDistribution(zf_path)
+    return path_dist.entry_points
 
 
 def _extract_metadata(whl_file):
-    logger.debug("searching metadata", whl_file=whl_file)
+    log = logger.bind(whl_file=whl_file)
+    log.debug("searching metadata", whl_file=whl_file)
     info = pkginfo.get_metadata(whl_file)
     if info is None:
         raise JohnnyError("failed to get metadata")
@@ -486,10 +507,11 @@ def _get_info(dist_name, index_url=None, env=None, extra_index_url=None):
         # downloaded file can be cleaned up immediately
         import_names = _discover_import_names(dist_path)
         metadata = _extract_metadata(dist_path)
+        entry_points = _discover_entry_points(dist_path)
     finally:
         log.debug("removing scratch", tmpdir=tmpdir)
         rmtree(tmpdir, ignore_errors=True)
-    return import_names, metadata
+    return import_names, metadata, entry_points
 
 
 # TODO: multi-line progress bar?
