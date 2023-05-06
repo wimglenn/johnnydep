@@ -548,3 +548,4 @@ def test_entry_points(make_dist):
     assert ep.name == "my-script"
     assert ep.group == "console_scripts"
     assert ep.value == "mypkg.mymod:foo"
+    assert dist.console_scripts == "my-script = mypkg.mymod:foo"

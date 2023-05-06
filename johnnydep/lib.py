@@ -254,6 +254,11 @@ class JohnnyDist(anytree.NodeMixin):
         return self.metadata.get("name", self.name)
 
     @property
+    def console_scripts(self):
+        eps = [ep for ep in self.entry_points or [] if ep.group == "console_scripts"]
+        return ", ".join(["{} = {}".format(ep.name, ep.value) for ep in eps])
+
+    @property
     def pinned(self):
         if self.extras_requested:
             extras = "[{}]".format(",".join(self.extras_requested))
@@ -453,7 +458,8 @@ def _discover_import_names(whl_file):
     else:
         all_names = zf.read(top_level_fname).decode("utf-8").strip().splitlines()
         public_names = [n for n in all_names if not n.startswith("_")]
-    return public_names
+    result = [n.replace("/", ".") for n in public_names]
+    return result
 
 
 def _discover_entry_points(whl_file):

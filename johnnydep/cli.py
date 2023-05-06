@@ -22,6 +22,7 @@ FIELDS = dict(
         ("requires", "Immediate dependencies"),
         ("required_by", "Parent(s) in the tree"),
         ("import_names", "Python imports provided (top-level names only)"),
+        ("console_scripts", "Entry points in the console_scripts group"),
         ("homepage", "Project URL"),
         ("extras_available", "Optional extensions available for the distribution"),
         ("extras_requested", "Optional extensions parsed from requirement specifier"),
