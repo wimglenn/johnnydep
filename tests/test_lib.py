@@ -541,7 +541,7 @@ def test_local_whl_json(make_dist):
 
 def test_entry_points(make_dist):
     # https://packaging.python.org/en/latest/specifications/entry-points/
-    entry_points = {"console_scripts": ["my-script=mypkg.mymod:foo"]}
+    entry_points = {"console_scripts": ["my-script = mypkg.mymod:foo"]}
     make_dist(name="example", entry_points=entry_points)
     dist = JohnnyDist("example")
     [ep] = dist.entry_points
