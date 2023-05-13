@@ -29,7 +29,7 @@ setup(
         "pip",
         "packaging >= 17",
         "wheel >= 0.32.0",
-        "importlib_metadata ; python_version < '3.7'",
+        "importlib_metadata ; python_version < '3.10'",
         "zipfile39 ; python_version < '3.9'",
     ],
     entry_points={

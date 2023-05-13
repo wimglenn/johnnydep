@@ -470,7 +470,38 @@ def _extract_metadata(whl_file):
     log = logger.bind(whl_file=whl_file)
     log.debug("finding metadata", whl_file=whl_file)
     path_dist = _path_dist(whl_file)
-    return path_dist.metadata.json
+    message = path_dist.metadata
+    try:
+        result = message.json
+    except AttributeError:
+        # older python
+        multiple_use_keys = {
+            "Classifier",
+            "Platform",
+            "Requires-External",
+            "Obsoletes-Dist",
+            "Supported-Platform",
+            "Provides-Dist",
+            "Requires-Dist",
+            "Project-URL",
+            "Provides-Extra",
+            "Dynamic",
+        }
+        result = {}
+        # https://peps.python.org/pep-0566/#json-compatible-metadata
+        for orig_key in message.keys():
+            k = orig_key.lower().replace("-", "_")
+            if k in result:
+                continue
+            if orig_key in multiple_use_keys:
+                result[k] = message.get_all(orig_key)
+            else:
+                result[k] = message[orig_key]
+        if "description" not in result:
+            payload = message.get_payload()
+            if payload:
+                result["description"] = payload
+    return result
 
 
 def has_error(dist):
