@@ -30,7 +30,7 @@ setup(
         "packaging >= 17",
         "wheel >= 0.32.0",
         "importlib_metadata ; python_version < '3.10'",
-        "zipfile39 ; python_version < '3.9'",
+        "zipfile38 ; python_version < '3.8'",
     ],
     entry_points={
         "console_scripts": [
