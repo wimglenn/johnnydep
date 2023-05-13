@@ -11,7 +11,6 @@ from tempfile import mkdtemp
 from zipfile import ZipFile
 
 import anytree
-import pkginfo
 import toml
 import tabulate
 import wimpy
@@ -158,18 +157,14 @@ class JohnnyDist(anytree.NodeMixin):
 
     @property
     def homepage(self):
-        for project_url in self.metadata.get("project_urls", []):
+        for project_url in self.metadata.get("project_url", []):
             if project_url.lower().startswith("homepage, "):
                 _, url = project_url.split(", ", 1)
                 return url
         try:
             return self.metadata["home_page"]
         except KeyError:
-            for k in "python.details", "python.project":
-                try:
-                    return self.metadata["extensions"][k]["project_urls"]["Home"]
-                except KeyError:
-                    pass
+            pass
         self.log.info("unknown homepage")
 
     @property
@@ -185,7 +180,7 @@ class JohnnyDist(anytree.NodeMixin):
         # for a list of valid classifiers:
         #   requests.get('https://pypi.python.org/pypi', params={':action': 'list_classifiers'}).text.splitlines()
         self.log.debug("metadata license is not set, checking trove classifiers")
-        for classifier in self.metadata.get("classifiers", []):
+        for classifier in self.metadata.get("classifier", []):
             if classifier.startswith("License :: "):
                 crap, result = classifier.rsplit(" :: ", 1)
                 break
@@ -243,10 +238,10 @@ class JohnnyDist(anytree.NodeMixin):
 
     @property
     def extras_available(self):
-        extras = {x for x in self.metadata.get("provides_extras", []) if x}
+        extras = {x for x in self.metadata.get("provides_extra", []) if x}
         for req_str in self.metadata.get("requires_dist", []):
             req = requirements.Requirement(req_str)
-            extras |= set(re.findall(r'extra == "(.*?)"', str(req.marker)))
+            extras |= set(re.findall(r"""extra == ['"](.*?)['"]""", str(req.marker)))
         return sorted(extras)
 
     @property
@@ -256,7 +251,7 @@ class JohnnyDist(anytree.NodeMixin):
     @property
     def console_scripts(self):
         eps = [ep for ep in self.entry_points or [] if ep.group == "console_scripts"]
-        return ", ".join(["{} = {}".format(ep.name, ep.value) for ep in eps])
+        return ["{} = {}".format(ep.name, ep.value) for ep in eps]
 
     @property
     def pinned(self):
@@ -435,26 +430,21 @@ def _discover_import_names(whl_file):
     try:
         [top_level_fname] = [x for x in namelist if x.endswith("top_level.txt")]
     except ValueError:
-        log.debug("top_level absent, trying metadata")
-        metadata = _extract_metadata(whl_file)
-        try:
-            public_names = metadata["python.exports"]["modules"] or []
-        except KeyError:
-            # this dist was packaged by a dinosaur, exports is not in metadata.
-            # we gotta do it the hard way ...
-            public_names = []
-            for name in namelist:
-                if ".dist-info/" not in name and ".egg-info/" not in name:
-                    parts = name.split("/")
-                    if len(parts) == 2 and parts[1] == "__init__.py":
-                        # found a top-level package
-                        public_names.append(parts[0])
-                    elif len(parts) == 1:
-                        # TODO: find or make an exhaustive list of file extensions importable
-                        name, ext = os.path.splitext(parts[0])
-                        if ext == ".py" or ext == ".so":
-                            # found a top level module
-                            public_names.append(name)
+        log.debug("top_level.txt absent, iterating contents")
+        # we gotta do it the hard way ...
+        public_names = []
+        for name in namelist:
+            if ".dist-info/" not in name and ".egg-info/" not in name:
+                parts = name.split("/")
+                if len(parts) == 2 and parts[1] == "__init__.py":
+                    # found a top-level package
+                    public_names.append(parts[0])
+                elif len(parts) == 1:
+                    # TODO: find or make an exhaustive list of file extensions importable
+                    name, ext = os.path.splitext(parts[0])
+                    if ext == ".py" or ext == ".so":
+                        # found a top level module
+                        public_names.append(name)
     else:
         all_names = zf.read(top_level_fname).decode("utf-8").strip().splitlines()
         public_names = [n for n in all_names if not n.startswith("_")]
@@ -462,25 +452,25 @@ def _discover_import_names(whl_file):
     return result
 
 
-def _discover_entry_points(whl_file):
-    log = logger.bind(whl_file=whl_file)
-    log.debug("finding entry points")
+def _path_dist(whl_file):
     parts = os.path.basename(whl_file).split("-")
     metadata_path = "-".join(parts[:2]) + ".dist-info/"
     zf_path = zipfile_path(whl_file, metadata_path)
-    path_dist = PathDistribution(zf_path)
+    return PathDistribution(zf_path)
+
+
+def _discover_entry_points(whl_file):
+    log = logger.bind(whl_file=whl_file)
+    log.debug("finding entry points")
+    path_dist = _path_dist(whl_file)
     return path_dist.entry_points
 
 
 def _extract_metadata(whl_file):
     log = logger.bind(whl_file=whl_file)
-    log.debug("searching metadata", whl_file=whl_file)
-    info = pkginfo.get_metadata(whl_file)
-    if info is None:
-        raise JohnnyError("failed to get metadata")
-    data = {k.lower(): v for k,v in vars(info).items()}
-    data.pop("filename", None)
-    return data
+    log.debug("finding metadata", whl_file=whl_file)
+    path_dist = _path_dist(whl_file)
+    return path_dist.metadata.json
 
 
 def has_error(dist):

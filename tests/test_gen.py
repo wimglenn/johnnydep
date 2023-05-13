@@ -23,7 +23,7 @@ def test_generated_metadata_from_dist_name(make_dist):
         "license": "MIT",
         "metadata_version": "2.1",
         "name": "jdtest",
-        "platforms": ["default platform"],
+        "platform": ["default platform"],
         "summary": "default text for metadata summary",
         "version": "0.1.2",
     }
@@ -44,7 +44,7 @@ def test_generated_metadata_from_dist_path(make_dist):
         "license": "MIT",
         "metadata_version": "2.1",
         "name": "jdtest",
-        "platforms": ["default platform"],
+        "platform": ["default platform"],
         "summary": "default text for metadata summary",
         "version": "0.1.2",
     }
@@ -100,7 +100,7 @@ def test_old_metadata_20(add_to_index):
         "license": "MIT",
         "metadata_version": "2.0",
         "name": "m20dist",
-        "platforms": ["default platform"],
+        "platform": ["default platform"],
         "summary": "default text for metadata summary",
         "version": "0.1.2",
     }
