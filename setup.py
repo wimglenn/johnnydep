@@ -22,7 +22,7 @@ setup(
         "structlog",
         "tabulate",
         "wimpy",
-        "colorama ; python_version<'3.7' or platform_system=='Windows'",  # structlog
+        "colorama ; python_version < '3.7' or platform_system == 'Windows'",  # structlog
         "cachetools",
         "oyaml",
         "toml",
@@ -30,7 +30,8 @@ setup(
         "packaging >= 17",
         "wheel >= 0.32.0",
         "importlib_metadata ; python_version < '3.10'",
-        "zipfile38 ; python_version < '3.8'",
+        "zipfile38 ; python_version < '3.8' and python_version != '2.7'",
+        "zipfile39 ; python_version == '2.7'",
     ],
     entry_points={
         "console_scripts": [
