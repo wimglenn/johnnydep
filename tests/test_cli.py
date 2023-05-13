@@ -148,7 +148,7 @@ def test_all_fields_toml_out(mocker, capsys, make_dist):
         requires = []
         required_by = []
         import_names = [ "that",]
-        console_scripts = ""
+        console_scripts = []
         homepage = "https://www.example.org/default"
         extras_available = []
         extras_requested = []

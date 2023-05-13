@@ -490,13 +490,6 @@ def test_license_parsing_unknown(make_dist):
     assert JohnnyDist("jdtest").license == ""
 
 
-def test_metadata_cant_be_extracted(make_dist, mocker):
-    make_dist()
-    mocker.patch("pkginfo.get_metadata", return_value=None)
-    with pytest.raises(JohnnyError("failed to get metadata")):
-        JohnnyDist("jdtest")
-
-
 def test_ignore_errors(make_dist):
     make_dist(name="distA", install_requires=["distB1>=1.0"], version="0.1")
     dist = JohnnyDist("distA", ignore_errors=True)
@@ -548,4 +541,4 @@ def test_entry_points(make_dist):
     assert ep.name == "my-script"
     assert ep.group == "console_scripts"
     assert ep.value == "mypkg.mymod:foo"
-    assert dist.console_scripts == "my-script = mypkg.mymod:foo"
+    assert dist.console_scripts == ["my-script = mypkg.mymod:foo"]

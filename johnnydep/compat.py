@@ -70,4 +70,7 @@ except ImportError:
 try:
     from zipfile import Path as zipfile_path
 except ImportError:
-    from zipfile39 import Path as zipfile_path
+    try:
+        from zipfile38 import Path as zipfile_path
+    except (ImportError, SyntaxError):
+        from zipfile39 import Path as zipfile_path
