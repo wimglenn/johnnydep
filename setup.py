@@ -27,7 +27,7 @@ setup(
         "oyaml",
         "toml",
         "pip",
-        "packaging >= 17",
+        "packaging >= 17, != 22",
         "wheel >= 0.32.0",
         "importlib_metadata ; python_version < '3.10'",
         "zipfile38 ; python_version < '3.8' and python_version != '2.7'",
