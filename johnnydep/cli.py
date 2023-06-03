@@ -41,24 +41,47 @@ FIELDS = dict(
 def main(argv=None, stdout=None):
     default_fields = os.environ.get("JOHNNYDEP_FIELDS", "name,summary").split(",")
     parser = ArgumentParser(prog="johnnydep", description=johnnydep.__doc__)
-    parser.add_argument("req", help="The project name or requirement specifier")
-    parser.add_argument("--index-url", "-i")
-    parser.add_argument("--extra-index-url")
+    parser.add_argument(
+        "req",
+        help=(
+            "The project name or requirement specifier. "
+            "Looks like what might you normally put after a 'pip install' "
+            "command (use PEP 440 syntax)."
+        ),
+    )
+    parser.add_argument(
+        "--index-url",
+        "-i",
+        metavar="<url>",
+        help=(
+            "Base URL of the Python Package Index (default https://pypi.org/simple). "
+            "This should point to a repository compliant with PEP 503 (the simple "
+            "repository API) or a local directory laid out in the same format."
+        ),
+    )
+    parser.add_argument(
+        "--extra-index-url",
+        metavar="<url>",
+        help=(
+            "Extra URLs of package indexes to use in addition to --index-url. "
+            "Should follow the same rules as --index-url."
+        ),
+    )
     parser.add_argument(
         "--ignore-errors",
         action="store_true",
-        help="Continue rendering the tree even if errors occur",
+        help="Continue rendering the tree even if errors occur.",
     )
     parser.add_argument(
         "--output-format",
         "-o",
         choices=["human", "json", "yaml", "python", "toml", "pinned", "dot"],
         default="human",
-        help="default: %(default)s",
+        help="Format to render the output (default: %(default)s).",
     )
     parser.add_argument(
         "--no-deps",
-        help="Don't recurse the dependency tree",
+        help="Show top level details only, don't recurse the dependency tree.",
         dest="recurse",
         action="store_false",
     )
@@ -68,10 +91,31 @@ def main(argv=None, stdout=None):
         nargs="*",
         default=default_fields,
         choices=list(FIELDS) + ["ALL"],
-        help="default: %(default)s",
+        help=(
+            "Space separated list of fields to print "
+            "(default: {}).".format(" ".join(default_fields))
+        ),
     )
-    parser.add_argument("--for-python", "-p", dest="env", type=python_interpreter)
-    parser.add_argument("--verbose", "-v", default=1, type=int, choices=range(3))
+    parser.add_argument(
+        "--for-python",
+        "-p",
+        dest="env",
+        type=python_interpreter,
+        metavar="<path>",
+        help=(
+            "Path to another Python executable. "
+            "If unspecified, the current runtime environment will be used "
+            "(i.e. {}).".format(sys.executable)
+        ),
+    )
+    parser.add_argument(
+        "--verbose",
+        "-v",
+        default=1,
+        type=int,
+        choices=range(3),
+        help="0 for less logging, 2 for more logging",
+    )
     parser.add_argument(
         "--version",
         action="version",
