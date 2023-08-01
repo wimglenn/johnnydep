@@ -79,6 +79,10 @@ def _get_wheel_args(index_url, env, extra_index_url):
     else:
         pip_version = dict(env)["pip_version"]
         args[0] = dict(env)["python_executable"]
+
+    if env and env.get('proxy'):
+        args.extend(["--proxy", env.get('proxy')])
+
     pip_major, pip_minor = pip_version.split(".")[0:2]
     pip_major = int(pip_major)
     pip_minor = int(pip_minor)
