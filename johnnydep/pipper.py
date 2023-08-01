@@ -74,14 +74,13 @@ def _get_wheel_args(index_url, env, extra_index_url):
                 args += ["--trusted-host", hostname]
     if extra_index_url is not None:
         args += ["--extra-index-url", extra_index_url, "--trusted-host", urlparse(extra_index_url).hostname]
-    if env is None:
-        pip_version = _get_pip_version()
-    else:
-        pip_version = dict(env)["pip_version"]
-        args[0] = dict(env)["python_executable"]
 
-    if env and env.get('proxy'):
-        args.extend(["--proxy", env.get('proxy')])
+    env_dict = dict(env) if env else dict()
+    pip_version = env_dict.get('pip_version', _get_pip_version())
+    args[0] = env_dict.get("python_executable", sys.executable)
+
+    if env_dict.get('proxy'):
+        args.extend(["--proxy", env_dict['proxy']])
 
     pip_major, pip_minor = pip_version.split(".")[0:2]
     pip_major = int(pip_major)
