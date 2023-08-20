@@ -172,6 +172,8 @@ def get(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None, 
             parts = line.split()
             link = parts[3]
             links.append(link)
+        elif line.startswith("Downloading link http"):
+            links.append(line.split()[2])
         elif line.startswith("Downloading "):
             parts = line.split()
             last = parts[-1]
@@ -199,6 +201,7 @@ def get(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None, 
         # prefer http scheme over file
         links += local_links
     links = list(dict.fromkeys(links))  # order-preserving dedupe
+    links = [link for link in links if "/" in link and not link.endswith(".metadata")]
     if not links:
         log.warning("could not find download link", out=out)
         raise Exception("failed to collect dist")
