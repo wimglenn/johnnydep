@@ -17,6 +17,7 @@ import tabulate
 import wimpy
 import yaml
 from cachetools.func import ttl_cache
+from collections import defaultdict
 from packaging import requirements
 from packaging.markers import default_environment
 from packaging.utils import canonicalize_name
@@ -33,12 +34,6 @@ __all__ = ["JohnnyDist", "gen_table", "flatten_deps", "has_error", "JohnnyError"
 
 
 logger = get_logger(__name__)
-
-
-class OrderedDefaultListDict(dict):
-    def __missing__(self, key):
-        self[key] = value = []
-        return value
 
 
 class JohnnyError(Exception):
@@ -290,7 +285,7 @@ class JohnnyDist(anytree.NodeMixin):
             fields = ("pinned",)
         if format == "dot":
             return jd2dot(self)
-        data = [dict([(f, getattr(self, f, None)) for f in fields])]
+        data = [{f: getattr(self, f, None) for f in fields}]
         if format == "human":
             table = gen_table(self, extra_cols=fields)
             if not recurse:
@@ -333,11 +328,11 @@ class JohnnyDist(anytree.NodeMixin):
 
 
 def gen_table(johnnydist, extra_cols=()):
-    extra_cols = dict.fromkeys(extra_cols)  # de-dupe and preserve ordering
+    extra_cols = {}.fromkeys(extra_cols)  # de-dupe and preserve ordering
     extra_cols.pop("name", None)  # this is always included anyway, no need to ask for it
     johnnydist.log.debug("generating table")
     for prefix, _fill, dist in anytree.RenderTree(johnnydist):
-        row = dict()
+        row = {}
         txt = str(dist.req)
         if dist.error:
             txt += " (FAILED)"
@@ -365,7 +360,7 @@ def _detect_circular(dist):
 
 def flatten_deps(johnnydist):
     johnnydist.log.debug("resolving dep tree")
-    dist_map = OrderedDefaultListDict()
+    dist_map = defaultdict(list)
     spec_map = defaultdict(str)
     extra_map = defaultdict(set)
     required_by_map = defaultdict(list)
