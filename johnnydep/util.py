@@ -1,10 +1,10 @@
 import json
-import structlog
 from argparse import ArgumentTypeError
-from subprocess import check_output
 from subprocess import CalledProcessError
+from subprocess import check_output
 
 import anytree
+import structlog
 
 from johnnydep import env_check
 

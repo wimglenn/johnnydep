@@ -1,7 +1,7 @@
 from textwrap import dedent
 
-from johnnydep.lib import JohnnyDist
 from johnnydep.dot import jd2dot
+from johnnydep.lib import JohnnyDist
 
 
 def test_dot_export(make_dist):

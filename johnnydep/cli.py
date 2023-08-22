@@ -4,7 +4,8 @@ from argparse import ArgumentParser
 from importlib.metadata import version
 
 import johnnydep
-from johnnydep.lib import JohnnyDist, has_error
+from johnnydep.lib import has_error
+from johnnydep.lib import JohnnyDist
 from johnnydep.logs import configure_logging
 from johnnydep.util import python_interpreter
 

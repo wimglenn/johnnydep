@@ -1,7 +1,7 @@
 from urllib.parse import urlparse
-from urllib.request import HTTPPasswordMgrWithDefaultRealm
-from urllib.request import HTTPBasicAuthHandler
 from urllib.request import build_opener
+from urllib.request import HTTPBasicAuthHandler
+from urllib.request import HTTPPasswordMgrWithDefaultRealm
 
 
 def urlretrieve(url, filename, data=None, auth=None):

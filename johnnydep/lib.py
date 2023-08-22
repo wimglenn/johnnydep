@@ -8,16 +8,15 @@ from importlib.metadata import PackageNotFoundError
 from importlib.metadata import PathDistribution
 from shutil import rmtree
 from tempfile import mkdtemp
-from zipfile import ZipFile
 from zipfile import Path as zipfile_path
+from zipfile import ZipFile
 
 import anytree
-import toml
 import tabulate
+import toml
 import wimpy
 import yaml
 from cachetools.func import ttl_cache
-from collections import defaultdict
 from packaging import requirements
 from packaging.markers import default_environment
 from packaging.utils import canonicalize_name

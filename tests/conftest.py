@@ -1,5 +1,4 @@
 import hashlib
-import os
 import os.path
 import subprocess
 import sys

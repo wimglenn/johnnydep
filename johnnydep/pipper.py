@@ -5,16 +5,16 @@ import sys
 import tempfile
 from argparse import ArgumentParser
 from glob import glob
-from packaging import requirements
 from subprocess import CalledProcessError
 from subprocess import check_output
 from subprocess import STDOUT
 from urllib.parse import urlparse
 
 from cachetools import cached
+from cachetools import TTLCache
 from cachetools.func import ttl_cache
 from cachetools.keys import hashkey
-from cachetools import TTLCache
+from packaging import requirements
 from structlog import get_logger
 
 from johnnydep.compat import urlretrieve
