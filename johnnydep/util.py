@@ -1,6 +1,3 @@
-# coding: utf-8
-from __future__ import unicode_literals
-
 import json
 import structlog
 from argparse import ArgumentTypeError
@@ -10,7 +7,6 @@ from subprocess import CalledProcessError
 import anytree
 
 from johnnydep import env_check
-from johnnydep.compat import JSONDecodeError
 
 
 def python_interpreter(path):
@@ -20,7 +16,7 @@ def python_interpreter(path):
         raise ArgumentTypeError("Invalid python env call")
     try:
         env = json.loads(env_json.decode())
-    except JSONDecodeError:
+    except json.JSONDecodeError:
         raise ArgumentTypeError("Invalid python env output")
     frozen = tuple(map(tuple, env))
     return frozen

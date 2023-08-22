@@ -1,0 +1,33 @@
+[project]
+name = "johnnydep"
+version = "2.0.0"
+description = "Display dependency tree of Python distribution"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "anytree",
+    "structlog",
+    "tabulate",
+    "wimpy",
+    "colorama ; platform_system == 'Windows'",
+    "cachetools",
+    "toml",
+    "pip >= 22.3",
+    "packaging >= 17, != 22",
+    "wheel >= 0.32.0",
+    "importlib_metadata ; python_version < '3.10'",
+]
+
+[[project.authors]]
+name = "Wim Glenn"
+email = "hey@wimglenn.com"
+
+[project.license]
+file = "LICENSE"
+
+[project.urls]
+homepage = "https://github.com/wimglenn/johnnydep"
+
+[project.scripts]
+johnnydep = "johnnydep.cli:main"
+pipper = "johnnydep.pipper:main"

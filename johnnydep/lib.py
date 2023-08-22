@@ -1,19 +1,21 @@
-# coding: utf-8
-from __future__ import unicode_literals
-
 import json
 import os
 import re
 import subprocess
 from collections import defaultdict
+from importlib.metadata import distribution
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import PathDistribution
 from shutil import rmtree
 from tempfile import mkdtemp
 from zipfile import ZipFile
+from zipfile import Path as zipfile_path
 
 import anytree
 import toml
 import tabulate
 import wimpy
+import yaml
 from cachetools.func import ttl_cache
 from packaging import requirements
 from packaging.markers import default_environment
@@ -24,12 +26,6 @@ from structlog import get_logger
 from wimpy import cached_property
 
 from johnnydep import pipper
-from johnnydep.compat import dict
-from johnnydep.compat import distribution
-from johnnydep.compat import oyaml
-from johnnydep.compat import PackageNotFoundError
-from johnnydep.compat import PathDistribution
-from johnnydep.compat import zipfile_path
 from johnnydep.dot import jd2dot
 from johnnydep.util import CircularMarker
 
@@ -310,7 +306,7 @@ class JohnnyDist(anytree.NodeMixin):
         elif format == "json":
             result = json.dumps(data, indent=2, default=str, separators=(",", ": "))
         elif format == "yaml":
-            result = oyaml.dump(data)
+            result = yaml.safe_dump(data, sort_keys=False)
         elif format == "toml":
             result = "\n".join([toml.dumps(d) for d in data])
         elif format == "pinned":

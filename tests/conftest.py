@@ -1,17 +1,16 @@
-# coding: utf-8
-from __future__ import unicode_literals
-
 import hashlib
 import os
 import os.path
 import subprocess
 import sys
+from importlib.metadata import version
 
 import pytest
 import whl
 from wimpy import working_directory
 
-import johnnydep
+from johnnydep import cli
+from johnnydep import dot
 from johnnydep import lib
 from johnnydep import pipper
 
@@ -33,7 +32,12 @@ def disable_logconfig(mocker):
 
 @pytest.fixture(autouse=True, scope="session")
 def freeze_version():
-    johnnydep.__version__ = "1.0"
+    def fake_version(name):
+        assert name == "johnnydep"
+        return "1.0"
+    cli.version = dot.version = fake_version
+    yield
+    cli.version = dot.version = version
 
 
 @pytest.fixture(autouse=True)

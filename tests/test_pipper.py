@@ -1,6 +1,3 @@
-# coding: utf-8
-from __future__ import unicode_literals
-
 import json
 import os
 
@@ -105,10 +102,10 @@ def test_get_wheel_args():
     ),
 )
 def test_download_dist_auth(mocker, url, index_url, extra_index_url, expected_auth, expected_top_level_url, tmp_path):
-    mgr = mocker.patch("johnnydep.compat.urllib2.HTTPPasswordMgrWithDefaultRealm")
+    mgr = mocker.patch("johnnydep.compat.HTTPPasswordMgrWithDefaultRealm")
     add_password_mock = mgr.return_value.add_password
 
-    opener = mocker.patch("johnnydep.compat.urllib2.build_opener").return_value
+    opener = mocker.patch("johnnydep.compat.build_opener").return_value
     mock_response = opener.open.return_value
     mock_response.read.return_value = b"test body"
 

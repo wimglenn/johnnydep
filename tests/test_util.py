@@ -6,7 +6,6 @@ import pytest
 
 from johnnydep import JohnnyDist
 from johnnydep.cli import FIELDS
-from johnnydep.compat import text_type
 from johnnydep.util import CircularMarker
 from johnnydep.util import python_interpreter
 
@@ -30,13 +29,11 @@ def test_good_python_env():
     assert isinstance(data, tuple)
     data = dict(data)
     for value in data.values():
-        assert isinstance(value, text_type)
+        assert isinstance(value, str)
     assert sorted(data) == [
         "implementation_name",
         "implementation_version",
         "os_name",
-        "packaging_version",
-        "pip_version",
         "platform_machine",
         "platform_python_implementation",
         "platform_release",
@@ -45,9 +42,7 @@ def test_good_python_env():
         "python_executable",
         "python_full_version",
         "python_version",
-        "setuptools_version",
         "sys_platform",
-        "wheel_version",
     ]
 
 

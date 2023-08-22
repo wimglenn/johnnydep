@@ -1,8 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-from __future__ import print_function
-from __future__ import unicode_literals
-
 import hashlib
 import json
 import os
@@ -14,6 +9,7 @@ from packaging import requirements
 from subprocess import CalledProcessError
 from subprocess import check_output
 from subprocess import STDOUT
+from urllib.parse import urlparse
 
 from cachetools import cached
 from cachetools.func import ttl_cache
@@ -21,7 +17,7 @@ from cachetools.keys import hashkey
 from cachetools import TTLCache
 from structlog import get_logger
 
-from johnnydep.compat import urlparse, urlretrieve, dict
+from johnnydep.compat import urlretrieve
 from johnnydep.logs import configure_logging
 from johnnydep.util import python_interpreter
 

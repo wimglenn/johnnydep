@@ -1,13 +1,9 @@
-# coding: utf-8
-from __future__ import print_function
-from __future__ import unicode_literals
-
 import os
 import sys
 from argparse import ArgumentParser
+from importlib.metadata import version
 
 import johnnydep
-from johnnydep.compat import dict
 from johnnydep.lib import JohnnyDist, has_error
 from johnnydep.logs import configure_logging
 from johnnydep.util import python_interpreter
@@ -119,7 +115,7 @@ def main(argv=None, stdout=None):
     parser.add_argument(
         "--version",
         action="version",
-        version="%(prog)s v{}".format(johnnydep.__version__),
+        version="%(prog)s v{}".format(version("johnnydep")),
     )
     args = parser.parse_args(argv)
     if "ALL" in args.fields:
