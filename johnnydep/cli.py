@@ -114,7 +114,7 @@ def main(argv=None, stdout=None):
     parser.add_argument(
         "--version",
         action="version",
-        version="%(prog)s v{}".format(version("johnnydep")),
+        version=f"%(prog)s v" + version("johnnydep"),
     )
     args = parser.parse_args(argv)
     if "ALL" in args.fields:

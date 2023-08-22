@@ -129,7 +129,7 @@ class JohnnyDist(anytree.NodeMixin):
             circular_deps = _detect_circular(self)
             if circular_deps:
                 chain = " -> ".join([d._name_with_extras() for d in circular_deps])
-                summary = "... <circular dependency marker for {}>".format(chain)
+                summary = f"... <circular dependency marker for {chain}>"
                 self.log.info("pruning circular dependency", chain=chain)
                 _dep = CircularMarker(summary=summary, parent=self)
             else:
@@ -241,18 +241,18 @@ class JohnnyDist(anytree.NodeMixin):
     @property
     def console_scripts(self):
         eps = [ep for ep in self.entry_points or [] if ep.group == "console_scripts"]
-        return ["{} = {}".format(ep.name, ep.value) for ep in eps]
+        return [f"{ep.name} = {ep.value}" for ep in eps]
 
     @property
     def pinned(self):
         if self.extras_requested:
-            extras = "[{}]".format(",".join(self.extras_requested))
+            extras = f"[{','.join(self.extras_requested)}]"
         else:
             extras = ""
         version = self.version_latest_in_spec
         if version is None:
             raise JohnnyError("Can not pin because no version available is in spec")
-        result = "{}{}=={}".format(self.project_name, extras, version)
+        result = f"{self.project_name}{extras}=={version}"
         return result
 
     @cached_property
@@ -268,14 +268,14 @@ class JohnnyDist(anytree.NodeMixin):
     @property
     def download_link(self):
         if self._from_fname is not None:
-            return "file://{}".format(self._from_fname)
+            return f"file://{self._from_fname}"
         return self._best.get("url")
 
     @property
     def checksum(self):
         if self._from_fname is not None:
             md5 = pipper.compute_checksum(self._from_fname, algorithm="md5")
-            return "md5={}".format(md5)
+            return f"md5={md5}"
         return self._best.get("checksum")
 
     def serialise(self, fields=("name", "summary"), recurse=True, format=None):
@@ -314,7 +314,7 @@ class JohnnyDist(anytree.NodeMixin):
     def _name_with_extras(self, attr="name"):
         result = getattr(self, attr)
         if self.extras_requested:
-            result += "[{}]".format(",".join(self.extras_requested))
+            result += f"[{','.join(self.extras_requested)}]"
         return result
 
     def _repr_pretty_(self, p, cycle):
@@ -323,7 +323,7 @@ class JohnnyDist(anytree.NodeMixin):
             p.text(repr(self))
         else:
             fullname = self._name_with_extras() + self.specifier
-            p.text("<{} {} at {}>".format(type(self).__name__, fullname, hex(id(self))))
+            p.text(f"<{type(self).__name__} {fullname} at {hex(id(self))}>")
 
 
 def gen_table(johnnydist, extra_cols=()):

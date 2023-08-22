@@ -84,10 +84,10 @@ def make_wheel(scratch_dir="/tmp/jdtest", callback=None, **extra):
             for req in reqs:
                 if ";" in req:
                     req, marker = req.split(";")
-                    marker = "({}) and extra == '{}'".format(marker, extra)
-                    req_str = "{}; {}".format(req, marker)
+                    marker = f"({marker}) and extra == '{extra}'"
+                    req_str = f"{req}; {marker}"
                 else:
-                    req_str = "{}; extra == '{}'".format(req, extra)
+                    req_str = f"{req}; extra == '{extra}'"
                 kwargs["requires_dist"].append(req_str)
     if "url" in kwargs:
         kwargs["home_page"] = kwargs.pop("url")
@@ -108,13 +108,13 @@ def make_wheel(scratch_dir="/tmp/jdtest", callback=None, **extra):
     with working_directory(scratch_dir):
         for fname in py_modules:
             if os.path.exists(fname):
-                raise Exception("already exists: {}".format(fname))
+                raise Exception(f"already exists: {fname}")
             with open(fname + ".py", "w"):
                 pass
             kwargs["src"].append(os.path.join(scratch_dir, fname + ".py"))
         dist = whl.make_wheel(**kwargs)
 
-    dist_path = os.path.join(scratch_dir, "{}-{}-py2.py3-none-any.whl".format(name, version))
+    dist_path = os.path.join(scratch_dir, f"{name}-{version}-py2.py3-none-any.whl")
     with open(dist_path, mode="rb") as f:
         md5 = hashlib.md5(f.read()).hexdigest()
     if callback is not None:
@@ -167,7 +167,7 @@ def fake_subprocess(mocker, add_to_index):
             "--no-cache-dir",
             "--disable-pip-version-check",
         ]
-        args.extend(["--find-links={}".format(p) for p in index_data])
+        args.extend([f"--find-links={p}" for p in index_data])
         args.append(req)
         output = subprocess_check_output(args, stderr=stderr, cwd=cwd)
         lines = output.decode().splitlines()
@@ -189,7 +189,7 @@ def fake_pip(mocker):
 
     def local_files_args(index_url, env, extra_index_url):
         test_dir = os.path.abspath(os.path.join(__file__, os.pardir))
-        canned = "file://{}".format(os.path.join(test_dir, "test_deps"))
+        canned = f"file://{os.path.join(test_dir, 'test_deps')}"
         args = [
             sys.executable,
             "-m",
@@ -200,7 +200,7 @@ def fake_pip(mocker):
             "--no-deps",
             "--no-cache-dir",
             "--disable-pip-version-check",
-            "--find-links={}".format(canned),
+            f"--find-links={canned}",
         ]
         return args
     mocker.patch("johnnydep.pipper._get_wheel_args", local_files_args)

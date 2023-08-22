@@ -138,7 +138,7 @@ def test_all_fields_toml_out(mocker, capsys, make_dist):
     out, err = capsys.readouterr()
     assert err == ""
     assert out == dedent(
-        """\
+        f"""\
         name = "wimpy"
         summary = "default text for metadata summary"
         specifier = "<0.4"
@@ -158,9 +158,7 @@ def test_all_fields_toml_out(mocker, capsys, make_dist):
         download_link = "http://fakeindex/wimpy-0.3-py2.py3-none-any.whl"
         checksum = "md5={checksum}"
 
-    """.format(
-            checksum=checksum
-        )
+    """
     )
 
 
