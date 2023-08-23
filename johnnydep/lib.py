@@ -3,6 +3,7 @@ import os
 import re
 import subprocess
 from collections import defaultdict
+from functools import cached_property
 from importlib.metadata import distribution
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import PathDistribution
@@ -14,7 +15,6 @@ from zipfile import ZipFile
 import anytree
 import tabulate
 import toml
-import wimpy
 import yaml
 from cachetools.func import ttl_cache
 from packaging import requirements
@@ -23,7 +23,6 @@ from packaging.utils import canonicalize_name
 from packaging.utils import canonicalize_version
 from packaging.version import parse as parse_version
 from structlog import get_logger
-from wimpy import cached_property
 
 from johnnydep import pipper
 from johnnydep.dot import jd2dot
@@ -336,7 +335,9 @@ def gen_table(johnnydist, extra_cols=()):
         if dist.error:
             txt += " (FAILED)"
         if "specifier" in extra_cols:
-            txt = wimpy.strip_suffix(txt, str(dist.specifier))
+            suffix = str(dist.specifier)
+            if txt.endswith(suffix):
+                txt = txt[:len(txt) - len(suffix)]
         row["name"] = prefix + txt
         for col in extra_cols:
             val = getattr(dist, col, "")

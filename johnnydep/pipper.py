@@ -9,6 +9,9 @@ from subprocess import CalledProcessError
 from subprocess import check_output
 from subprocess import STDOUT
 from urllib.parse import urlparse
+from urllib.request import build_opener
+from urllib.request import HTTPBasicAuthHandler
+from urllib.request import HTTPPasswordMgrWithDefaultRealm
 
 from cachetools import cached
 from cachetools import TTLCache
@@ -17,7 +20,6 @@ from cachetools.keys import hashkey
 from packaging import requirements
 from structlog import get_logger
 
-from johnnydep.compat import urlretrieve
 from johnnydep.logs import configure_logging
 from johnnydep.util import python_interpreter
 
@@ -25,6 +27,24 @@ log = get_logger(__name__)
 
 
 DEFAULT_INDEX = "https://pypi.org/simple/"
+
+
+def urlretrieve(url, filename, data=None, auth=None):
+    if auth is None:
+        opener = build_opener()
+    else:
+        # https://docs.python.org/3/howto/urllib2.html#id5
+        password_mgr = HTTPPasswordMgrWithDefaultRealm()
+        username, password = auth
+        top_level_url = urlparse(url).netloc
+        password_mgr.add_password(None, top_level_url, username, password)
+        handler = HTTPBasicAuthHandler(password_mgr)
+        opener = build_opener(handler)
+    res = opener.open(url, data=data)
+    headers = res.info()
+    with open(filename, "wb") as fp:
+        fp.write(res.read())
+    return filename, headers
 
 
 def compute_checksum(target, algorithm="sha256", blocksize=2 ** 13):

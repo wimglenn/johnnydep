@@ -8,7 +8,6 @@ dependencies = [
     "anytree",
     "structlog",
     "tabulate",
-    "wimpy",
     "colorama ; platform_system == 'Windows'",
     "cachetools",
     "toml",
