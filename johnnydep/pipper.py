@@ -5,7 +5,6 @@ import sys
 import tempfile
 from argparse import ArgumentParser
 from glob import glob
-from importlib.metadata import version
 from subprocess import CalledProcessError
 from subprocess import check_output
 from subprocess import STDOUT
@@ -81,7 +80,7 @@ def _get_wheel_args(index_url, env, extra_index_url):
     if extra_index_url is not None:
         args += ["--extra-index-url", extra_index_url, "--trusted-host", urlparse(extra_index_url).hostname]
     if env is not None:
-        args[0] = dict(env)["python_executable"]
+        args[3:3] = ["--python", dict(env)["python_executable"]]
     return args
 
 

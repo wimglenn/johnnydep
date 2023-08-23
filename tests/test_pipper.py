@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 
 import pytest
 from wimpy import working_directory
@@ -39,9 +40,11 @@ def test_get_wheel_args():
     url = "https://user:pass@example.org:8888/something"
     args = johnnydep.pipper._get_wheel_args(index_url=url, env=fake_env, extra_index_url=None)
     assert args == [
-        "snek",
+        sys.executable,
         "-m",
         "pip",
+        "--python",
+        "snek",
         "wheel",
         "-vvv",
         "--no-deps",
