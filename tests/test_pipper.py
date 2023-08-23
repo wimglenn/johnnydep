@@ -35,7 +35,7 @@ def test_compute_checksum(tmp_path):
 
 
 def test_get_wheel_args():
-    fake_env = ("python_executable", "snek"), ("pip_version", "8.8.8")
+    fake_env = ("python_executable", "snek"), ("pip_version", "22.3")
     url = "https://user:pass@example.org:8888/something"
     args = johnnydep.pipper._get_wheel_args(index_url=url, env=fake_env, extra_index_url=None)
     assert args == [
@@ -47,6 +47,7 @@ def test_get_wheel_args():
         "--no-deps",
         "--no-cache-dir",
         "--disable-pip-version-check",
+        "--progress-bar=off",
         "--index-url",
         "https://user:pass@example.org:8888/something",
         "--trusted-host",

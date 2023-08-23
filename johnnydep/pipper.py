@@ -66,10 +66,11 @@ def _get_wheel_args(index_url, env, extra_index_url):
         "-m",
         "pip",
         "wheel",
-        "-vvv",  # --verbose x3
+        "-vvv",
         "--no-deps",
         "--no-cache-dir",
         "--disable-pip-version-check",
+        "--progress-bar=off",
     ]
     if index_url is not None:
         args += ["--index-url", index_url]
@@ -79,19 +80,8 @@ def _get_wheel_args(index_url, env, extra_index_url):
                 args += ["--trusted-host", hostname]
     if extra_index_url is not None:
         args += ["--extra-index-url", extra_index_url, "--trusted-host", urlparse(extra_index_url).hostname]
-    if env is None:
-        pip_version = version("pip")
-    else:
-        pip_version = dict(env)["pip_version"]
+    if env is not None:
         args[0] = dict(env)["python_executable"]
-    pip_major, pip_minor = pip_version.split(".")[0:2]
-    pip_major = int(pip_major)
-    pip_minor = int(pip_minor)
-    if pip_major >= 10:
-        args.append("--progress-bar=off")
-    if (20, 3) <= (pip_major, pip_minor) < (21, 1):
-        # See https://github.com/pypa/pip/issues/9139#issuecomment-735443177
-        args.append("--use-deprecated=legacy-resolver")
     return args
 
 
