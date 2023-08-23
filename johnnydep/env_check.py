@@ -14,13 +14,8 @@ def format_full_version(info):
 
 # cribbed from packaging.markers to avoid a runtime dependency here
 def default_environment():
-    if hasattr(sys, "implementation"):
-        iver = format_full_version(sys.implementation.version)
-        implementation_name = sys.implementation.name
-    else:
-        iver = "0"
-        implementation_name = ""
-
+    iver = format_full_version(sys.implementation.version)
+    implementation_name = sys.implementation.name
     return {
         "implementation_name": implementation_name,
         "implementation_version": iver,
