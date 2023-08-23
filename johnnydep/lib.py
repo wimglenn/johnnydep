@@ -335,6 +335,8 @@ def gen_table(johnnydist, extra_cols=()):
         if dist.error:
             txt += " (FAILED)"
         if "specifier" in extra_cols:
+            # can use https://docs.python.org/3/library/stdtypes.html#str.removesuffix
+            # after dropping support for Python-3.8
             suffix = str(dist.specifier)
             if txt.endswith(suffix):
                 txt = txt[:len(txt) - len(suffix)]

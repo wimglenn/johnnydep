@@ -5,6 +5,7 @@ import sys
 import tempfile
 from argparse import ArgumentParser
 from glob import glob
+from importlib.metadata import version
 from subprocess import CalledProcessError
 from subprocess import check_output
 from subprocess import STDOUT
@@ -59,18 +60,6 @@ def compute_checksum(target, algorithm="sha256", blocksize=2 ** 13):
     return result
 
 
-def _get_pip_version():
-    # try to get pip version without actually importing pip
-    # setuptools gets upset if you import pip before importing setuptools..
-    try:
-        import importlib.metadata  # Python 3.8+
-        return importlib.metadata.version("pip")
-    except Exception:
-        pass
-    import pip
-    return pip.__version__
-
-
 def _get_wheel_args(index_url, env, extra_index_url):
     args = [
         sys.executable,
@@ -91,7 +80,7 @@ def _get_wheel_args(index_url, env, extra_index_url):
     if extra_index_url is not None:
         args += ["--extra-index-url", extra_index_url, "--trusted-host", urlparse(extra_index_url).hostname]
     if env is None:
-        pip_version = _get_pip_version()
+        pip_version = version("pip")
     else:
         pip_version = dict(env)["pip_version"]
         args[0] = dict(env)["python_executable"]
