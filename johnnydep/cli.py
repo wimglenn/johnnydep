@@ -1,41 +1,36 @@
-# coding: utf-8
-from __future__ import print_function
-from __future__ import unicode_literals
-
 import os
 import sys
 from argparse import ArgumentParser
+from importlib.metadata import version
 
 import johnnydep
-from johnnydep.compat import dict
-from johnnydep.lib import JohnnyDist, has_error
+from johnnydep.lib import has_error
+from johnnydep.lib import JohnnyDist
 from johnnydep.logs import configure_logging
 from johnnydep.util import python_interpreter
 
 
-FIELDS = dict(
-    [
-        # (attribute, help)
-        ("name", "Canonical name of the distribution"),
-        ("summary", "Short description of the distribution"),
-        ("specifier", "Requirement specifier (see PEP 508) e.g. ~=1.7"),
-        ("requires", "Immediate dependencies"),
-        ("required_by", "Parent(s) in the tree"),
-        ("import_names", "Python imports provided (top-level names only)"),
-        ("console_scripts", "Entry points in the console_scripts group"),
-        ("homepage", "Project URL"),
-        ("extras_available", "Optional extensions available for the distribution"),
-        ("extras_requested", "Optional extensions parsed from requirement specifier"),
-        ("project_name", "Usually matches the canonical name but may have different case"),
-        ("license", "License covering the distribution"),
-        ("versions_available", "List of versions available at index"),
-        ("version_installed", "Version currently installed, if any"),
-        ("version_latest", "Latest version available"),
-        ("version_latest_in_spec", "Best version: latest available within requirement specifier"),
-        ("download_link", "Source or binary distribution URL"),
-        ("checksum", "Source or binary distribution hash"),
-    ]
-)
+FIELDS = {
+    # attribute: help text
+    "name": "Canonical name of the distribution",
+    "summary": "Short description of the distribution",
+    "specifier": "Requirement specifier (see PEP 508) e.g. ~=1.7",
+    "requires": "Immediate dependencies",
+    "required_by": "Parent(s) in the tree",
+    "import_names": "Python imports provided (top-level names only)",
+    "console_scripts": "Entry points in the console_scripts group",
+    "homepage": "Project URL",
+    "extras_available": "Optional extensions available for the distribution",
+    "extras_requested": "Optional extensions parsed from requirement specifier",
+    "project_name": "Usually matches the canonical name but may have different case",
+    "license": "License covering the distribution",
+    "versions_available": "List of versions available at index",
+    "version_installed": "Version currently installed, if any",
+    "version_latest": "Latest version available",
+    "version_latest_in_spec": "Best version: latest available within requirement specifier",
+    "download_link": "Source or binary distribution URL",
+    "checksum": "Source or binary distribution hash",
+}
 
 
 def main(argv=None, stdout=None):
@@ -119,7 +114,7 @@ def main(argv=None, stdout=None):
     parser.add_argument(
         "--version",
         action="version",
-        version="%(prog)s v{}".format(johnnydep.__version__),
+        version=f"%(prog)s v" + version("johnnydep"),
     )
     args = parser.parse_args(argv)
     if "ALL" in args.fields:

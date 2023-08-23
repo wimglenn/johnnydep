@@ -1,8 +1,6 @@
-# coding: utf-8
-from __future__ import unicode_literals
-
 import json
 import os
+import sys
 
 import pytest
 from wimpy import working_directory
@@ -38,18 +36,21 @@ def test_compute_checksum(tmp_path):
 
 
 def test_get_wheel_args():
-    fake_env = ("python_executable", "snek"), ("pip_version", "8.8.8")
+    fake_env = ("python_executable", "snek"), ("pip_version", "22.3")
     url = "https://user:pass@example.org:8888/something"
     args = johnnydep.pipper._get_wheel_args(index_url=url, env=fake_env, extra_index_url=None)
     assert args == [
-        "snek",
+        sys.executable,
         "-m",
         "pip",
+        "--python",
+        "snek",
         "wheel",
         "-vvv",
         "--no-deps",
         "--no-cache-dir",
         "--disable-pip-version-check",
+        "--progress-bar=off",
         "--index-url",
         "https://user:pass@example.org:8888/something",
         "--trusted-host",
@@ -105,10 +106,10 @@ def test_get_wheel_args():
     ),
 )
 def test_download_dist_auth(mocker, url, index_url, extra_index_url, expected_auth, expected_top_level_url, tmp_path):
-    mgr = mocker.patch("johnnydep.compat.urllib2.HTTPPasswordMgrWithDefaultRealm")
+    mgr = mocker.patch("johnnydep.pipper.HTTPPasswordMgrWithDefaultRealm")
     add_password_mock = mgr.return_value.add_password
 
-    opener = mocker.patch("johnnydep.compat.urllib2.build_opener").return_value
+    opener = mocker.patch("johnnydep.pipper.build_opener").return_value
     mock_response = opener.open.return_value
     mock_response.read.return_value = b"test body"
 

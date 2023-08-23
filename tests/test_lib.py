@@ -1,6 +1,3 @@
-# coding: utf-8
-from __future__ import unicode_literals
-
 import json
 import os
 from subprocess import CalledProcessError
@@ -8,9 +5,9 @@ from textwrap import dedent
 
 import pytest
 
+from johnnydep.lib import flatten_deps
 from johnnydep.lib import JohnnyDist
 from johnnydep.lib import JohnnyError
-from johnnydep.lib import flatten_deps
 
 
 def test_version_nonexisting(make_dist):

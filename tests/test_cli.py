@@ -1,6 +1,3 @@
-# coding: utf-8
-from __future__ import unicode_literals
-
 import sys
 from textwrap import dedent
 
@@ -141,7 +138,7 @@ def test_all_fields_toml_out(mocker, capsys, make_dist):
     out, err = capsys.readouterr()
     assert err == ""
     assert out == dedent(
-        """\
+        f"""\
         name = "wimpy"
         summary = "default text for metadata summary"
         specifier = "<0.4"
@@ -161,17 +158,12 @@ def test_all_fields_toml_out(mocker, capsys, make_dist):
         download_link = "http://fakeindex/wimpy-0.3-py2.py3-none-any.whl"
         checksum = "md5={checksum}"
 
-    """.format(
-            checksum=checksum
-        )
+    """
     )
 
 
 def test_ignore_errors_build_error(mocker, capsys, fake_pip, monkeypatch):
-    if sys.version_info.major == 2:
-        monkeypatch.setenv(b"JDT3_FAIL", b"1")
-    else:
-        monkeypatch.setenv("JDT3_FAIL", "1")
+    monkeypatch.setenv("JDT3_FAIL", "1")
     mocker.patch("sys.argv", "johnnydep jdt1 --ignore-errors --fields name".split())
     with pytest.raises(SystemExit(1)):
         main()

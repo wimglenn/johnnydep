@@ -1,8 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-from __future__ import print_function
-from __future__ import unicode_literals
-
 import hashlib
 import json
 import os
@@ -10,18 +5,21 @@ import sys
 import tempfile
 from argparse import ArgumentParser
 from glob import glob
-from packaging import requirements
 from subprocess import CalledProcessError
 from subprocess import check_output
 from subprocess import STDOUT
+from urllib.parse import urlparse
+from urllib.request import build_opener
+from urllib.request import HTTPBasicAuthHandler
+from urllib.request import HTTPPasswordMgrWithDefaultRealm
 
 from cachetools import cached
+from cachetools import TTLCache
 from cachetools.func import ttl_cache
 from cachetools.keys import hashkey
-from cachetools import TTLCache
+from packaging import requirements
 from structlog import get_logger
 
-from johnnydep.compat import urlparse, urlretrieve, dict
 from johnnydep.logs import configure_logging
 from johnnydep.util import python_interpreter
 
@@ -29,6 +27,24 @@ log = get_logger(__name__)
 
 
 DEFAULT_INDEX = "https://pypi.org/simple/"
+
+
+def urlretrieve(url, filename, data=None, auth=None):
+    if auth is None:
+        opener = build_opener()
+    else:
+        # https://docs.python.org/3/howto/urllib2.html#id5
+        password_mgr = HTTPPasswordMgrWithDefaultRealm()
+        username, password = auth
+        top_level_url = urlparse(url).netloc
+        password_mgr.add_password(None, top_level_url, username, password)
+        handler = HTTPBasicAuthHandler(password_mgr)
+        opener = build_opener(handler)
+    res = opener.open(url, data=data)
+    headers = res.info()
+    with open(filename, "wb") as fp:
+        fp.write(res.read())
+    return filename, headers
 
 
 def compute_checksum(target, algorithm="sha256", blocksize=2 ** 13):
@@ -43,28 +59,17 @@ def compute_checksum(target, algorithm="sha256", blocksize=2 ** 13):
     return result
 
 
-def _get_pip_version():
-    # try to get pip version without actually importing pip
-    # setuptools gets upset if you import pip before importing setuptools..
-    try:
-        import importlib.metadata  # Python 3.8+
-        return importlib.metadata.version("pip")
-    except Exception:
-        pass
-    import pip
-    return pip.__version__
-
-
 def _get_wheel_args(index_url, env, extra_index_url):
     args = [
         sys.executable,
         "-m",
         "pip",
         "wheel",
-        "-vvv",  # --verbose x3
+        "-vvv",
         "--no-deps",
         "--no-cache-dir",
         "--disable-pip-version-check",
+        "--progress-bar=off",
     ]
     if index_url is not None:
         args += ["--index-url", index_url]
@@ -74,19 +79,8 @@ def _get_wheel_args(index_url, env, extra_index_url):
                 args += ["--trusted-host", hostname]
     if extra_index_url is not None:
         args += ["--extra-index-url", extra_index_url, "--trusted-host", urlparse(extra_index_url).hostname]
-    if env is None:
-        pip_version = _get_pip_version()
-    else:
-        pip_version = dict(env)["pip_version"]
-        args[0] = dict(env)["python_executable"]
-    pip_major, pip_minor = pip_version.split(".")[0:2]
-    pip_major = int(pip_major)
-    pip_minor = int(pip_minor)
-    if pip_major >= 10:
-        args.append("--progress-bar=off")
-    if (20, 3) <= (pip_major, pip_minor) < (21, 1):
-        # See https://github.com/pypa/pip/issues/9139#issuecomment-735443177
-        args.append("--use-deprecated=legacy-resolver")
+    if env is not None:
+        args[3:3] = ["--python", dict(env)["python_executable"]]
     return args
 
 

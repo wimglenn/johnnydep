@@ -1,19 +1,21 @@
-# coding: utf-8
-from __future__ import unicode_literals
-
 import json
 import os
 import re
 import subprocess
 from collections import defaultdict
+from functools import cached_property
+from importlib.metadata import distribution
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import PathDistribution
 from shutil import rmtree
 from tempfile import mkdtemp
+from zipfile import Path as zipfile_path
 from zipfile import ZipFile
 
 import anytree
-import toml
 import tabulate
-import wimpy
+import toml
+import yaml
 from cachetools.func import ttl_cache
 from packaging import requirements
 from packaging.markers import default_environment
@@ -21,15 +23,8 @@ from packaging.utils import canonicalize_name
 from packaging.utils import canonicalize_version
 from packaging.version import parse as parse_version
 from structlog import get_logger
-from wimpy import cached_property
 
 from johnnydep import pipper
-from johnnydep.compat import dict
-from johnnydep.compat import distribution
-from johnnydep.compat import oyaml
-from johnnydep.compat import PackageNotFoundError
-from johnnydep.compat import PathDistribution
-from johnnydep.compat import zipfile_path
 from johnnydep.dot import jd2dot
 from johnnydep.util import CircularMarker
 
@@ -37,12 +32,6 @@ __all__ = ["JohnnyDist", "gen_table", "flatten_deps", "has_error", "JohnnyError"
 
 
 logger = get_logger(__name__)
-
-
-class OrderedDefaultListDict(dict):
-    def __missing__(self, key):
-        self[key] = value = []
-        return value
 
 
 class JohnnyError(Exception):
@@ -139,7 +128,7 @@ class JohnnyDist(anytree.NodeMixin):
             circular_deps = _detect_circular(self)
             if circular_deps:
                 chain = " -> ".join([d._name_with_extras() for d in circular_deps])
-                summary = "... <circular dependency marker for {}>".format(chain)
+                summary = f"... <circular dependency marker for {chain}>"
                 self.log.info("pruning circular dependency", chain=chain)
                 _dep = CircularMarker(summary=summary, parent=self)
             else:
@@ -251,18 +240,18 @@ class JohnnyDist(anytree.NodeMixin):
     @property
     def console_scripts(self):
         eps = [ep for ep in self.entry_points or [] if ep.group == "console_scripts"]
-        return ["{} = {}".format(ep.name, ep.value) for ep in eps]
+        return [f"{ep.name} = {ep.value}" for ep in eps]
 
     @property
     def pinned(self):
         if self.extras_requested:
-            extras = "[{}]".format(",".join(self.extras_requested))
+            extras = f"[{','.join(self.extras_requested)}]"
         else:
             extras = ""
         version = self.version_latest_in_spec
         if version is None:
             raise JohnnyError("Can not pin because no version available is in spec")
-        result = "{}{}=={}".format(self.project_name, extras, version)
+        result = f"{self.project_name}{extras}=={version}"
         return result
 
     @cached_property
@@ -278,14 +267,14 @@ class JohnnyDist(anytree.NodeMixin):
     @property
     def download_link(self):
         if self._from_fname is not None:
-            return "file://{}".format(self._from_fname)
+            return f"file://{self._from_fname}"
         return self._best.get("url")
 
     @property
     def checksum(self):
         if self._from_fname is not None:
             md5 = pipper.compute_checksum(self._from_fname, algorithm="md5")
-            return "md5={}".format(md5)
+            return f"md5={md5}"
         return self._best.get("checksum")
 
     def serialise(self, fields=("name", "summary"), recurse=True, format=None):
@@ -294,7 +283,7 @@ class JohnnyDist(anytree.NodeMixin):
             fields = ("pinned",)
         if format == "dot":
             return jd2dot(self)
-        data = [dict([(f, getattr(self, f, None)) for f in fields])]
+        data = [{f: getattr(self, f, None) for f in fields}]
         if format == "human":
             table = gen_table(self, extra_cols=fields)
             if not recurse:
@@ -310,7 +299,7 @@ class JohnnyDist(anytree.NodeMixin):
         elif format == "json":
             result = json.dumps(data, indent=2, default=str, separators=(",", ": "))
         elif format == "yaml":
-            result = oyaml.dump(data)
+            result = yaml.safe_dump(data, sort_keys=False)
         elif format == "toml":
             result = "\n".join([toml.dumps(d) for d in data])
         elif format == "pinned":
@@ -324,7 +313,7 @@ class JohnnyDist(anytree.NodeMixin):
     def _name_with_extras(self, attr="name"):
         result = getattr(self, attr)
         if self.extras_requested:
-            result += "[{}]".format(",".join(self.extras_requested))
+            result += f"[{','.join(self.extras_requested)}]"
         return result
 
     def _repr_pretty_(self, p, cycle):
@@ -333,20 +322,24 @@ class JohnnyDist(anytree.NodeMixin):
             p.text(repr(self))
         else:
             fullname = self._name_with_extras() + self.specifier
-            p.text("<{} {} at {}>".format(type(self).__name__, fullname, hex(id(self))))
+            p.text(f"<{type(self).__name__} {fullname} at {hex(id(self))}>")
 
 
 def gen_table(johnnydist, extra_cols=()):
-    extra_cols = dict.fromkeys(extra_cols)  # de-dupe and preserve ordering
+    extra_cols = {}.fromkeys(extra_cols)  # de-dupe and preserve ordering
     extra_cols.pop("name", None)  # this is always included anyway, no need to ask for it
     johnnydist.log.debug("generating table")
     for prefix, _fill, dist in anytree.RenderTree(johnnydist):
-        row = dict()
+        row = {}
         txt = str(dist.req)
         if dist.error:
             txt += " (FAILED)"
         if "specifier" in extra_cols:
-            txt = wimpy.strip_suffix(txt, str(dist.specifier))
+            # can use https://docs.python.org/3/library/stdtypes.html#str.removesuffix
+            # after dropping support for Python-3.8
+            suffix = str(dist.specifier)
+            if txt.endswith(suffix):
+                txt = txt[:len(txt) - len(suffix)]
         row["name"] = prefix + txt
         for col in extra_cols:
             val = getattr(dist, col, "")
@@ -369,7 +362,7 @@ def _detect_circular(dist):
 
 def flatten_deps(johnnydist):
     johnnydist.log.debug("resolving dep tree")
-    dist_map = OrderedDefaultListDict()
+    dist_map = defaultdict(list)
     spec_map = defaultdict(str)
     extra_map = defaultdict(set)
     required_by_map = defaultdict(list)
