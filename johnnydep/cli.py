@@ -88,7 +88,7 @@ def main(argv=None, stdout=None):
         choices=list(FIELDS) + ["ALL"],
         help=(
             "Space separated list of fields to print "
-            "(default: {}).".format(" ".join(default_fields))
+            "(default: {' '.join(default_fields)})."
         ),
     )
     parser.add_argument(
@@ -100,7 +100,7 @@ def main(argv=None, stdout=None):
         help=(
             "Path to another Python executable. "
             "If unspecified, the current runtime environment will be used "
-            "(i.e. {}).".format(sys.executable)
+            f"(i.e. {sys.executable})."
         ),
     )
     parser.add_argument(

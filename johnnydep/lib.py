@@ -381,8 +381,8 @@ def flatten_deps(johnnydist):
         for dist in dists:
             v = dist.version_latest_in_spec
             if v is None:
-                msg = "Could not find satisfactory version for {}{}"
-                raise JohnnyError(msg.format(dist.name, dist.specifier))
+                msg = f"Could not find satisfactory version for {dist.name}{dist.specifier}"
+                raise JohnnyError(msg)
             if v in spec and set(dist.extras_requested) >= extras:
                 dist.required_by = required_by
                 johnnydist.log.info(
@@ -399,13 +399,12 @@ def flatten_deps(johnnydist):
             assert len(nameset) == 1  # name attributes were canonicalized by JohnnyDist.__init__
             [name] = nameset
             johnnydist.log.info("merged specs", name=name, spec=spec, extras=extras)
-            req_string = "{name}{extras}{spec}".format(
-                name=name,
-                extras="[{}]".format(",".join(sorted(extras))) if extras else "",
-                spec=spec,
-            )
+            if extras:
+                extra = f"[{','.join(sorted(extras))}]"
+            else:
+                extra = ""
             dist = JohnnyDist(
-                req_string=req_string,
+                req_string=f"{name}{extra}{spec}",
                 index_url=johnnydist.index_url,
                 env=johnnydist.env,
                 extra_index_url=johnnydist.extra_index_url,
