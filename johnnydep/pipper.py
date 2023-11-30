@@ -20,8 +20,8 @@ from cachetools.keys import hashkey
 from packaging import requirements
 from structlog import get_logger
 
-from johnnydep.logs import configure_logging
-from johnnydep.util import python_interpreter
+from .logs import configure_logging
+from .util import python_interpreter
 
 log = get_logger(__name__)
 

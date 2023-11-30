@@ -41,7 +41,7 @@ def test_version_installed(make_dist):
 def test_version_not_installed(make_dist):
     make_dist()
     jdist = JohnnyDist("jdtest")
-    assert jdist.version_installed is None
+    assert not jdist.version_installed
 
 
 def test_version_latest(make_dist):
@@ -430,7 +430,7 @@ def test_pprint(make_dist, mocker):
 
 def test_get_caching(make_dist, mocker):
     # this test is trying to make sure that distribution "c", a node which appears
-    # twice in the dependency tree, is only downloaded from the index once.
+    # twice in the dependency graph, is only downloaded from the index once.
     # i.e. check that the ttl caching on the downloader is working correctly
     downloader = mocker.patch("johnnydep.lib.pipper.get")
     _, c, _ = make_dist(name="c", description="leaf node")

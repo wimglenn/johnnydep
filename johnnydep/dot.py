@@ -2,7 +2,7 @@ from importlib.metadata import version
 
 from anytree import LevelOrderIter
 
-from johnnydep.util import CircularMarker
+from .util import CircularMarker
 
 
 template = """\

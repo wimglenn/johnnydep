@@ -3,10 +3,9 @@ from argparse import ArgumentTypeError
 from subprocess import CalledProcessError
 from subprocess import check_output
 
-import anytree
 import structlog
 
-from johnnydep import env_check
+from . import env_check
 
 
 def python_interpreter(path):
@@ -22,7 +21,7 @@ def python_interpreter(path):
     return frozen
 
 
-class CircularMarker(anytree.NodeMixin):
+class CircularMarker:
     """
     This is like a "fake" JohnnyDist instance which is used
     to render a node in circular dep trees like:
@@ -41,7 +40,7 @@ class CircularMarker(anytree.NodeMixin):
         self.req = CircularMarker.glyph
         self.name = CircularMarker.glyph
         self.summary = summary
-        self.parent = parent
+        self.parents = [parent]
         self.log = structlog.get_logger()
 
     def __getattr__(self, name):

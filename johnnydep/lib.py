@@ -3,18 +3,19 @@ import os
 import re
 import subprocess
 from collections import defaultdict
+from collections import deque
 from functools import cached_property
 from importlib.metadata import distribution
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import PathDistribution
 from shutil import rmtree
 from tempfile import mkdtemp
+from types import SimpleNamespace
 from zipfile import Path as zipfile_path
 from zipfile import ZipFile
 
-import anytree
 import tabulate
-import toml
+import tomli_w
 import yaml
 from cachetools.func import ttl_cache
 from packaging import requirements
@@ -24,28 +25,35 @@ from packaging.utils import canonicalize_version
 from packaging.version import parse as parse_version
 from structlog import get_logger
 
-from johnnydep import pipper
-from johnnydep.dot import jd2dot
-from johnnydep.util import CircularMarker
+from . import pipper
+from .dot import jd2dot
+from .util import CircularMarker
 
-__all__ = ["JohnnyDist", "gen_table", "flatten_deps", "has_error", "JohnnyError"]
-
+__all__ = ["JohnnyDist", "gen_table", "flatten_deps", "has_error", "JohnnyError", "config"]
 
 logger = get_logger(__name__)
 
+config = SimpleNamespace(
+    env=None,
+    index_url=None,
+    extra_index_url=None,
+)
 
 class JohnnyError(Exception):
     pass
 
 
-class JohnnyDist(anytree.NodeMixin):
-    def __init__(self, req_string, parent=None, index_url=None, env=None, extra_index_url=None, ignore_errors=False):
+def get_or_create(req_string):
+    pass
+
+
+class JohnnyDist:
+    def __init__(self, req_string, parent=None, ignore_errors=False):
         log = self.log = logger.bind(dist=req_string)
         log.info("init johnnydist", parent=parent and str(parent.req))
-        self.parent = parent
-        self.index_url = index_url
-        self.env = env
-        self.extra_index_url = extra_index_url
+        self._children = []
+        if parent is not None:
+            self.parents = [parent]
         self.ignore_errors = ignore_errors
         self.error = None
         self._recursed = False
@@ -69,12 +77,7 @@ class JohnnyDist(anytree.NodeMixin):
             self.specifier = str(self.req.specifier)
             log.debug("fetching best wheel")
             try:
-                self.import_names, self.metadata, self.entry_points = _get_info(
-                    dist_name=req_string,
-                    index_url=index_url,
-                    env=env,
-                    extra_index_url=extra_index_url
-                )
+                self.import_names, self.metadata, self.entry_points = _get_info(dist_name=req_string)
             except subprocess.CalledProcessError as err:
                 if not self.ignore_errors:
                     raise
@@ -85,8 +88,6 @@ class JohnnyDist(anytree.NodeMixin):
 
         self.extras_requested = sorted(self.req.extras)
         if parent is None:
-            if env:
-                log.debug("root node target env", **dict(env))
             self.required_by = []
         else:
             self.required_by = [str(parent.req)]
@@ -98,10 +99,10 @@ class JohnnyDist(anytree.NodeMixin):
         if not all_requires:
             return []
         result = []
-        if self.env is None:
+        if config.env is None:
             env_data = default_environment()
         else:
-            env_data = dict(self.env)
+            env_data = dict(config.env)
         for req_str in all_requires:
             req = requirements.Requirement(req_str)
             req_short, _sep, _marker = str(req).partition(";")
@@ -124,7 +125,8 @@ class JohnnyDist(anytree.NodeMixin):
     def children(self):
         """my immediate deps, as a tuple of johnnydists"""
         if not self._recursed:
-            self.log.debug("populating dep tree")
+            assert not self._children
+            self.log.debug("populating dep graph")
             circular_deps = _detect_circular(self)
             if circular_deps:
                 chain = " -> ".join([d._name_with_extras() for d in circular_deps])
@@ -133,16 +135,14 @@ class JohnnyDist(anytree.NodeMixin):
                 _dep = CircularMarker(summary=summary, parent=self)
             else:
                 for dep in self.requires:
-                    JohnnyDist(
+                    child = JohnnyDist(
                         req_string=dep,
                         parent=self,
-                        index_url=self.index_url,
-                        env=self.env,
-                        extra_index_url=self.extra_index_url,
                         ignore_errors=self.ignore_errors,
                     )
+                    self._children.append(child)
             self._recursed = True
-        return super(JohnnyDist, self).children
+        return self._children
 
     @property
     def homepage(self):
@@ -179,12 +179,7 @@ class JohnnyDist(anytree.NodeMixin):
 
     @cached_property
     def versions_available(self):
-        result = pipper.get_versions(
-            self.project_name,
-            index_url=self.index_url,
-            env=self.env,
-            extra_index_url=self.extra_index_url,
-        )
+        result = pipper.get_versions(self.project_name)
         if self._from_fname is not None:
             raw_version = os.path.basename(self._from_fname).split("-")[1]
             local_version = canonicalize_version(raw_version)
@@ -205,7 +200,7 @@ class JohnnyDist(anytree.NodeMixin):
             dist = distribution(self.name)
         except PackageNotFoundError:
             self.log.debug("not installed")
-            return
+            return ""
         self.log.debug("existing installation found", version=dist.version)
         return dist.version
 
@@ -256,13 +251,7 @@ class JohnnyDist(anytree.NodeMixin):
 
     @cached_property
     def _best(self):
-        return pipper.get(
-            self.pinned,
-            index_url=self.index_url,
-            env=self.env,
-            extra_index_url=self.extra_index_url,
-            ignore_errors=True,
-        )
+        return pipper.get(self.pinned, ignore_errors=True)
 
     @property
     def download_link(self):
@@ -301,7 +290,8 @@ class JohnnyDist(anytree.NodeMixin):
         elif format == "yaml":
             result = yaml.safe_dump(data, sort_keys=False)
         elif format == "toml":
-            result = "\n".join([toml.dumps(d) for d in data])
+            print(data)
+            result = "\n".join([tomli_w.dumps(d) for d in data])
         elif format == "pinned":
             result = "\n".join([d["pinned"] for d in data])
         else:
@@ -352,6 +342,7 @@ def gen_table(johnnydist, extra_cols=()):
 def _detect_circular(dist):
     # detects a circular dependency when traversing from here to the root node, and returns
     # a chain of nodes in that case
+    return False  # TODO
     chain = [dist]
     for ancestor in reversed(dist.ancestors):
         chain.append(ancestor)
@@ -360,13 +351,26 @@ def _detect_circular(dist):
                 return chain[::-1]
 
 
+def _bfs(jdist):
+    seen = set()
+    q = deque([jdist])
+    while q:
+        jd = q.pop()
+        pk = id(jd)
+        if pk in seen:
+            continue
+        seen.add(pk)
+        yield jd
+        q.extend(jd.children)
+
+
 def flatten_deps(johnnydist):
-    johnnydist.log.debug("resolving dep tree")
+    johnnydist.log.debug("resolving dep graph")
     dist_map = defaultdict(list)
     spec_map = defaultdict(str)
     extra_map = defaultdict(set)
     required_by_map = defaultdict(list)
-    for dep in anytree.iterators.LevelOrderIter(johnnydist):
+    for dep in _bfs(johnnydist):
         if dep.name == CircularMarker.glyph:
             continue
         dist_map[dep.name].append(dep)
@@ -403,12 +407,7 @@ def flatten_deps(johnnydist):
                 extra = f"[{','.join(sorted(extras))}]"
             else:
                 extra = ""
-            dist = JohnnyDist(
-                req_string=f"{name}{extra}{spec}",
-                index_url=johnnydist.index_url,
-                env=johnnydist.env,
-                extra_index_url=johnnydist.extra_index_url,
-            )
+            dist = JohnnyDist(req_string=f"{name}{extra}{spec}")
             dist.required_by = required_by
             yield dist
             # TODO: check if this new version causes any new reqs!!
@@ -503,18 +502,12 @@ def has_error(dist):
 
 
 @ttl_cache(maxsize=512, ttl=60 * 5)
-def _get_info(dist_name, index_url=None, env=None, extra_index_url=None):
+def _get_info(dist_name):
     log = logger.bind(dist_name=dist_name)
     tmpdir = mkdtemp()
     log.debug("created scratch", tmpdir=tmpdir)
     try:
-        data = pipper.get(
-            dist_name,
-            index_url=index_url,
-            env=env,
-            extra_index_url=extra_index_url,
-            tmpdir=tmpdir,
-        )
+        data = pipper.get(dist_name, tmpdir=tmpdir)
         dist_path = data["path"]
         # extract any info we may need from downloaded dist right now, so the
         # downloaded file can be cleaned up immediately
