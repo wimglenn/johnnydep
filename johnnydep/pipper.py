@@ -33,7 +33,10 @@ DEFAULT_INDEX = "https://pypi.org/simple/"
 
 def compute_checksum(target, algorithm="sha256", blocksize=2 ** 13):
     hashtype = getattr(hashlib, algorithm)
-    hash_ = hashtype()
+    if algorithm == "blake2b":
+        hash_ = hashtype(digest_size=32)
+    else:
+        hash_ = hashtype()
     log.debug("computing checksum", target=target, algorithm=algorithm)
     with open(target, "rb") as f:
         for chunk in iter(lambda: f.read(blocksize), b""):
@@ -150,19 +153,7 @@ def _cache_key(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir
 _get_cache = TTLCache(maxsize=512, ttl=60 * 5)
 
 
-@cached(_get_cache, key=_cache_key)
-def get(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None, ignore_errors=False):
-    args = _get_wheel_args(index_url, env, extra_index_url) + [dist_name]
-    scratch_dir = tempfile.mkdtemp(dir=tmpdir)
-    log.debug("wheeling and dealing", scratch_dir=os.path.abspath(scratch_dir), args=" ".join(args))
-    try:
-        out = check_output(args, stderr=STDOUT, cwd=scratch_dir).decode("utf-8")
-    except CalledProcessError as err:
-        out = getattr(err, "output", b"").decode("utf-8")
-        log.warning(out)
-        if not ignore_errors:
-            raise
-    log.debug("wheel command completed ok", dist_name=dist_name)
+def _extract_links_from_pip_log(out):
     links = []
     local_links = []
     lines = out.splitlines()
@@ -200,6 +191,35 @@ def get(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None, 
     if not links:
         # prefer http scheme over file
         links += local_links
+    return links
+
+
+@cached(_get_cache, key=_cache_key)
+def get(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None, ignore_errors=False):
+    args = _get_wheel_args(index_url, env, extra_index_url) + [dist_name]
+    scratch_dir = tempfile.mkdtemp(dir=tmpdir)
+    log.debug("wheeling and dealing", scratch_dir=os.path.abspath(scratch_dir), args=" ".join(args))
+    try:
+        out = check_output(args, stderr=STDOUT, cwd=scratch_dir).decode("utf-8")
+    except CalledProcessError as err:
+        out = getattr(err, "output", b"").decode("utf-8")
+        log.warning(out)
+        if not ignore_errors:
+            raise
+    log.debug("wheel command completed ok", dist_name=dist_name)
+    links = []
+    try:
+        [whl] = glob(os.path.join(os.path.abspath(scratch_dir), "*.whl"))
+    except ValueError:
+        pass
+    else:
+        b2b = compute_checksum(whl, "blake2b")
+        path = "/".join([b2b[:2], b2b[2:4], b2b[4:], os.path.basename(whl)])
+        urls = {x for x in out.split() if x.startswith("http") and x.endswith(path)}
+        if len(urls) == 1:
+            links = list(urls)
+    if not links:
+        links = _extract_links_from_pip_log(out)
     links = list(dict.fromkeys(links))  # order-preserving dedupe
     links = [link for link in links if "/" in link and not link.endswith(".metadata")]
     if not links:
