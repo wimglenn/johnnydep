@@ -25,6 +25,7 @@ setup(
         "colorama ; python_version < '3.7' or platform_system == 'Windows'",  # structlog
         "cachetools",
         "oyaml",
+        "pyblake2 ; python_version < '3.6'",
         "toml",
         "pip",
         "packaging >= 17, != 22",
