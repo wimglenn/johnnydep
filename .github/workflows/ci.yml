@@ -9,7 +9,7 @@ on:
 
 jobs:
   tests:
-    name: "Python ${{ matrix.python-version }} on ${{ matrix.os }}"
+    name: Python ${{ matrix.python-version }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -22,17 +22,19 @@ jobs:
         - "3.11"
 
     steps:
-      - uses: "actions/checkout@v3"
-      - uses: "actions/setup-python@v4"
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
         with:
-          python-version: "${{ matrix.python-version }}"
-      - name: "Install dependencies"
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
         run: |
           python -VV
           python -m pip install -r requirements-dev.txt
 
-      - name: "Run tests for ${{ matrix.python-version }} on ${{ matrix.os }}"
+      - name: Run tests for ${{ matrix.python-version }} on ${{ matrix.os }}
         run: python -m pytest
 
       - name: Upload coverage to Codecov
-        uses: "codecov/codecov-action@v3"
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
