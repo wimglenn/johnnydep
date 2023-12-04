@@ -33,10 +33,7 @@ DEFAULT_INDEX = "https://pypi.org/simple/"
 
 def compute_checksum(target, algorithm="sha256", blocksize=2 ** 13):
     hashtype = getattr(hashlib, algorithm)
-    if algorithm == "blake2b":
-        hash_ = hashtype(digest_size=32)
-    else:
-        hash_ = hashtype()
+    hash_ = hashtype()
     log.debug("computing checksum", target=target, algorithm=algorithm)
     with open(target, "rb") as f:
         for chunk in iter(lambda: f.read(blocksize), b""):
@@ -44,6 +41,18 @@ def compute_checksum(target, algorithm="sha256", blocksize=2 ** 13):
     result = hash_.hexdigest()
     log.debug("computed checksum", result=result)
     return result
+
+
+def _warehouse_hash(target):
+    try:
+        blake2b = hashlib.blake2b
+    except AttributeError:
+        # Python < 3.6
+        import pyblake2
+        blake2b = pyblake2.blake2b
+    with open(target, "rb") as f:
+        b2b = blake2b(f.read(), digest_size=32)
+    return b2b.hexdigest()
 
 
 def _get_pip_version():
@@ -213,7 +222,7 @@ def get(dist_name, index_url=None, env=None, extra_index_url=None, tmpdir=None, 
     except ValueError:
         pass
     else:
-        b2b = compute_checksum(whl, "blake2b")
+        b2b = _warehouse_hash(whl)
         path = "/".join([b2b[:2], b2b[2:4], b2b[4:], os.path.basename(whl)])
         urls = {x for x in out.split() if x.startswith("http") and x.endswith(path)}
         if len(urls) == 1:
