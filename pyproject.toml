@@ -31,3 +31,16 @@ homepage = "https://github.com/wimglenn/johnnydep"
 [project.scripts]
 johnnydep = "johnnydep.cli:main"
 pipper = "johnnydep.pipper:main"
+
+
+[tool.pytest.ini_options]
+testpaths = tests
+addopts = [
+    "-ra",
+    "--cov=johnnydep",
+    "--cov-report=html",
+    "--cov-report=term",
+    "--no-cov-on-fail",
+    "--color=yes",
+    "--disable-socket",
+]
