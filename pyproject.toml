@@ -34,7 +34,7 @@ pipper = "johnnydep.pipper:main"
 
 
 [tool.pytest.ini_options]
-testpaths = tests
+testpaths = "tests"
 addopts = [
     "-ra",
     "--cov=johnnydep",
