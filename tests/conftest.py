@@ -22,6 +22,7 @@ original_check_output = subprocess.check_output
 @pytest.fixture(autouse=True)
 def expire_caches():
     pipper.get_versions.cache_clear()
+    pipper._get_versions_legacy.cache_clear()
     pipper._get_cache.clear()
     lib._get_info.cache_clear()
 
@@ -153,17 +154,32 @@ def fake_subprocess(mocker, add_to_index):
     def wheel_proc(args, stderr, cwd=None):
         exe = args[0]
         req = args[-1]
-        args = [
-            exe,
-            "-m",
-            "pip",
-            "wheel",
-            "-vvv",
-            "--no-index",
-            "--no-deps",
-            "--no-cache-dir",
-            "--disable-pip-version-check",
-        ]
+        if "versions" in args:
+            args = [
+                exe,
+                "-m",
+                "pip",
+                "index",
+                "versions",
+                "--pre",
+                "--no-index",
+                "--no-cache-dir",
+                "--disable-pip-version-check",
+                "--no-color",
+                "--no-python-version-warning"
+            ]
+        else:
+            args = [
+                exe,
+                "-m",
+                "pip",
+                "wheel",
+                "-vvv",
+                "--no-index",
+                "--no-deps",
+                "--no-cache-dir",
+                "--disable-pip-version-check",
+            ]
         args.extend(["--find-links={}".format(p) for p in index_data])
         args.append(req)
         output = subprocess_check_output(args, stderr=stderr, cwd=cwd)

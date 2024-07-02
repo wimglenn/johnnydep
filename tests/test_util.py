@@ -29,8 +29,8 @@ def test_good_python_env():
     data = python_interpreter(sys.executable)
     assert isinstance(data, tuple)
     data = dict(data)
-    for value in data.values():
-        assert isinstance(value, text_type)
+    for key, value in data.items():
+        assert isinstance(value, text_type), key
     assert sorted(data) == [
         "implementation_name",
         "implementation_version",

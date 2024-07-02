@@ -8,3 +8,4 @@ coverage
 wheel
 whl >= 0.0.4
 wimpy == 0.3  # just something we can pin
+setuptools; python_version >= '3.12'

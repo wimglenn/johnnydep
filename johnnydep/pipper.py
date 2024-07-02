@@ -122,6 +122,50 @@ def _download_dist(url, scratch_file, index_url, extra_index_url):
 def get_versions(dist_name, index_url=None, env=None, extra_index_url=None):
     bare_name = requirements.Requirement(dist_name).name
     log.debug("checking versions available", dist=bare_name)
+    if env is None:
+        pip_version = _get_pip_version()
+    else:
+        pip_version = dict(env)["pip_version"]
+    if int(pip_version.split(".")[0]) < 24:
+        return _get_versions_legacy(dist_name, index_url, env, extra_index_url)
+    args = [
+        sys.executable,
+        "-m",
+        "pip",
+        "index",
+        "versions",
+        "--pre",
+        "--no-cache-dir",
+        "--disable-pip-version-check",
+        "--no-color",
+        "--no-python-version-warning"
+    ]
+    if index_url is not None:
+        args += ["--index-url", index_url]
+        if index_url != DEFAULT_INDEX:
+            hostname = urlparse(index_url).hostname
+            if hostname:
+                args += ["--trusted-host", hostname]
+    if extra_index_url is not None:
+        args += ["--extra-index-url", extra_index_url, "--trusted-host", urlparse(extra_index_url).hostname]
+    args.append(dist_name)
+    try:
+        out = check_output(args, stderr=STDOUT).decode("utf-8")
+    except CalledProcessError as e:
+        out = e.output.decode("utf-8")
+        if "ERROR: No matching distribution found for" in out:
+            return []
+        raise
+    for line in out.splitlines():
+        if line.startswith("Available versions: "):
+            versions = line[len("Available versions: "):].strip().split(", ")[::-1]
+            log.debug("found versions", dist=bare_name, versions=versions)
+            return versions
+
+
+@ttl_cache(maxsize=512, ttl=60 * 5)
+def _get_versions_legacy(dist_name, index_url=None, env=None, extra_index_url=None):
+    bare_name = requirements.Requirement(dist_name).name
     args = _get_wheel_args(index_url, env, extra_index_url) + [dist_name + "==showmethemoney"]
     try:
         out = check_output(args, stderr=STDOUT)
