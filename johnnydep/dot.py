@@ -1,8 +1,7 @@
 from importlib.metadata import version
 
-from anytree import LevelOrderIter
-
-from johnnydep.util import CircularMarker
+from .util import _bfs
+from .util import CircularMarker
 
 
 template = """\
@@ -26,13 +25,14 @@ def jd2dot(dist, comment=None):
             comment = "# " + comment
     title = dist.project_name.replace("-", "_")
     edges = []
-    for node in LevelOrderIter(dist):
+    for node in _bfs(dist):
         if isinstance(node, CircularMarker):
             # todo - render cycles differently?
             continue
-        if node.parent is not None:
+        if node.parents:
+            [parent] = node.parents
             node_name = node._name_with_extras(attr="project_name")
-            parent_node_name = node.parent._name_with_extras(attr="project_name")
+            parent_node_name = parent._name_with_extras(attr="project_name")
             spec = node.req.specifier
             label = f' [label="{spec}"]' if spec else ""
             edge = f'"{parent_node_name}" -> "{node_name}"'

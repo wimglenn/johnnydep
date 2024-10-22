@@ -6,7 +6,6 @@ import structlog
 def configure_logging(verbosity=0):
     level = "DEBUG" if verbosity > 1 else "INFO" if verbosity == 1 else "WARNING"
     timestamper = structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M:%S")
-    # Add the log level and a timestamp to the event_dict if the log entry is not from structlog
     pre_chain = [structlog.stdlib.add_log_level, timestamper]
     logging.config.dictConfig(
         {
@@ -30,17 +29,10 @@ def configure_logging(verbosity=0):
                     "class": "logging.StreamHandler",
                     "formatter": "colored",
                 },
-                # "file": {
-                #     "level": "DEBUG",
-                #     "class": "logging.handlers.WatchedFileHandler",
-                #     "filename": "johnnydep.log",
-                #     "formatter": "plain",
-                # },
             },
             "loggers": {
                 "": {
                     "handlers": ["default"],
-                    # "handlers": ["default", "file"],
                     "level": "DEBUG",
                     "propagate": True,
                 }

@@ -4,10 +4,11 @@ from argparse import ArgumentParser
 from importlib.metadata import version
 
 import johnnydep
-from johnnydep.lib import has_error
-from johnnydep.lib import JohnnyDist
-from johnnydep.logs import configure_logging
-from johnnydep.util import python_interpreter
+from . import config
+from .lib import has_error
+from .lib import JohnnyDist
+from .logs import configure_logging
+from .util import python_interpreter
 
 
 FIELDS = {
@@ -120,13 +121,11 @@ def main(argv=None, stdout=None):
     if "ALL" in args.fields:
         args.fields = list(FIELDS)
     configure_logging(verbosity=args.verbose)
-    dist = JohnnyDist(
-        args.req,
-        index_url=args.index_url,
-        env=args.env,
-        extra_index_url=args.extra_index_url,
-        ignore_errors=args.ignore_errors,
-    )
+    config.index_url = args.index_url
+    config.extra_index_url = args.extra_index_url
+    if args.env is not None:
+        config.env = args.env
+    dist = JohnnyDist(args.req, ignore_errors=args.ignore_errors)
     rendered = dist.serialise(
         fields=args.fields,
         format=args.output_format,
