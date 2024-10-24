@@ -3,6 +3,7 @@ import os
 from textwrap import dedent
 
 import pytest
+from packaging.requirements import Requirement
 
 from johnnydep import lib
 from johnnydep.lib import flatten_deps
@@ -525,3 +526,12 @@ def test_ignore_errors_version_attrs(mocker):
     mocker.patch("unearth.finder.PackageFinder.find_matches", return_value=[])
     dist = JohnnyDist("notexist", ignore_errors=True)
     assert dist.version_latest is None
+
+
+def test_checksum_from_link(make_dist, mocker):
+    make_dist()
+    dist = JohnnyDist("jdtest")
+    get_link = mocker.patch("johnnydep.lib._get_link")
+    get_link.return_value.link.hashes = {"sha256": "cafef00d"}
+    assert dist.checksum == "sha256=cafef00d"
+    get_link.assert_called_once_with(Requirement("jdtest"))
