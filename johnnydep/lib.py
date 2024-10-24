@@ -1,7 +1,6 @@
 import hashlib
 import io
 import json
-import os
 import re
 import subprocess
 import sys
@@ -187,9 +186,7 @@ class JohnnyDist:
 
     @cached_property
     def versions_available(self):
-        finder = _get_package_finder()
-        matches = finder.find_matches(self.project_name, allow_prereleases=True)
-        versions = [p.version for p in matches][::-1]
+        versions = _get_versions(self.project_name)
         if self._local_path is not None:
             raw_version = self._local_path.name.split("-")[1]
             local_version = canonicalize_version(raw_version)
@@ -263,17 +260,22 @@ class JohnnyDist:
     def download_link(self):
         if self._local_path is not None:
             return f"file://{self._local_path}"
-        package_finder = _get_package_finder()
-        return package_finder.find_best_match(self.req, allow_prereleases=True).best.link.url
+        best = _get_link(self.req)
+        if best is not None:
+            return best.link.url
 
     @property
     def checksum(self):
         if self._local_path is not None:
             return "md5=" + hashlib.md5(self._local_path.read_bytes()).hexdigest()
-        link = self.download_link
+        best = _get_link(self.req)
+        if best.link.hashes:
+            for hash in "md5", "sha256":
+                if hash in best.link.hashes:
+                    return f"{hash}={best.link.hashes[hash]}"
         f = io.BytesIO()
         download_dist(
-            url=link,
+            url=best.link.url,
             f=f,
             index_url=config.index_url,
             extra_index_url=config.extra_index_url,
@@ -578,13 +580,27 @@ def _get_package_finder():
 
 
 @lru_cache(maxsize=None)
+def _get_versions(req):
+    finder = _get_package_finder()
+    matches = finder.find_matches(req, allow_prereleases=True)
+    versions = [p.version for p in matches][::-1]
+    return versions
+
+
+@lru_cache(maxsize=None)
+def _get_link(req):
+    package_finder = _get_package_finder()
+    best = package_finder.find_best_match(req, allow_prereleases=True).best
+    return best
+
+
+@lru_cache(maxsize=None)
 def _get_info(dist_name):
     log = logger.bind(dist_name=dist_name)
     tmpdir = mkdtemp()
     log.debug("created scratch", tmpdir=tmpdir)
     try:
-        package_finder = _get_package_finder()
-        best = package_finder.find_best_match(dist_name, allow_prereleases=True).best
+        best = _get_link(dist_name)
         if best is None:
             raise JohnnyError(f"Package not found {dist_name!r}")
         dist_path = Path(tmpdir) / best.link.filename
