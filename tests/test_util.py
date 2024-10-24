@@ -26,11 +26,10 @@ def test_bad_python_interpreter_output_triggers_argparse_error(mocker):
 
 def test_good_python_env():
     data = python_interpreter(sys.executable)
-    assert isinstance(data, tuple)
-    data = dict(data)
-    for value in data.values():
-        assert isinstance(value, str)
+    assert isinstance(data, dict)
     assert sorted(data) == [
+        "abis",
+        "impl",
         "implementation_name",
         "implementation_version",
         "os_name",
@@ -39,11 +38,19 @@ def test_good_python_env():
         "platform_release",
         "platform_system",
         "platform_version",
+        "platforms",
+        "py_ver",
         "python_executable",
         "python_full_version",
         "python_version",
+        "supported_tags",
         "sys_platform",
     ]
+    assert data.pop("abis") is None
+    assert data.pop("platforms") is None
+    assert data.pop("py_ver") >= [3, 8]
+    for name, value in data.items():
+        assert isinstance(value, str), name
 
 
 def test_placeholder_serializes(make_dist):
@@ -53,3 +60,11 @@ def test_placeholder_serializes(make_dist):
     CircularMarker(summary=".", parent=dist)
     txt = dist.serialise(fields=FIELDS, format="human")
     assert txt
+
+
+def test_placeholder_attr():
+    cm = CircularMarker(summary=".", parent=None)
+    assert cm.blah is None
+    assert cm.__doc__ is not None
+    with pytest.raises(AttributeError):
+        cm._blah
