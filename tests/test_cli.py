@@ -126,7 +126,7 @@ def test_requirements_txt_output(mocker, capsys, make_dist):
 
 def test_all_fields_toml_out(mocker, capsys, make_dist, tmp_path):
     dist_path = make_dist(name="example", version="0.3", py_modules=["that"])
-    checksum = hashlib.md5(dist_path.read_bytes()).hexdigest()
+    checksum = hashlib.sha256(dist_path.read_bytes()).hexdigest()
     mocker.patch("sys.argv", "johnnydep example<0.4 --fields=ALL --output-format=toml".split())
     main()
     out, err = capsys.readouterr()
@@ -153,7 +153,7 @@ def test_all_fields_toml_out(mocker, capsys, make_dist, tmp_path):
         version_latest = "0.3"
         version_latest_in_spec = "0.3"
         download_link = "{tmp_path.as_uri()}/example-0.3-py2.py3-none-any.whl"
-        checksum = "md5={checksum}"
+        checksum = "sha256={checksum}"
 
         '''
     )

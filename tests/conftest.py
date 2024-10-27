@@ -16,9 +16,8 @@ from johnnydep import lib
 
 @pytest.fixture(autouse=True)
 def expire_caches():
+    lib._get_packages.cache_clear()
     lib._get_info.cache_clear()
-    lib._get_link.cache_clear()
-    lib._get_versions.cache_clear()
 
 
 @pytest.fixture(autouse=True)

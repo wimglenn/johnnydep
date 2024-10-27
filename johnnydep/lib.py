@@ -6,9 +6,11 @@ import subprocess
 import sys
 from collections import defaultdict
 from collections import deque
+from dataclasses import dataclass
 from functools import cached_property
 from functools import lru_cache
 from importlib.metadata import distribution
+from importlib.metadata import EntryPoints
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import PathDistribution
 from pathlib import Path
@@ -24,8 +26,8 @@ import rich.markup
 import tomli_w
 import unearth
 import yaml
-from packaging import requirements
 from packaging.markers import default_environment
+from packaging.requirements import Requirement
 from packaging.tags import parse_tag
 from packaging.utils import canonicalize_name
 from packaging.utils import canonicalize_version
@@ -67,6 +69,10 @@ class JohnnyDist:
         self.ignore_errors = ignore_errors
         self.error = None
         self._recursed = False
+        self.checksum = None
+        self.import_names = None
+        self.metadata = {}
+        self.entry_points = None
 
         fname, sep, extras = req_string.partition("[")
         if fname.endswith(".whl") and Path(fname).is_file():
@@ -75,26 +81,29 @@ class JohnnyDist:
             name, version, *rest = Path(fname).name.split("-")
             self.name = canonicalize_name(name)
             self.specifier = "==" + canonicalize_version(version)
-            self.req = requirements.Requirement(self.name + sep + extras + self.specifier)
+            self.req = Requirement(self.name + sep + extras + self.specifier)
             self.import_names = _discover_import_names(fname)
             self.metadata = _extract_metadata(fname)
             self.entry_points = _discover_entry_points(fname)
             self._local_path = Path(fname).resolve()
+            self.checksum = "sha256=" + hashlib.sha256(self._local_path.read_bytes()).hexdigest()
         else:
             self._local_path = None
-            self.req = requirements.Requirement(req_string)
+            self.req = Requirement(req_string)
             self.name = canonicalize_name(self.req.name)
             self.specifier = str(self.req.specifier)
             log.debug("fetching best wheel")
             try:
-                self.import_names, self.metadata, self.entry_points = _get_info(dist_name=req_string)
+                info = _get_info(self.req)
             except Exception as err:
                 if not self.ignore_errors:
                     raise
-                self.import_names = None
-                self.metadata = {}
-                self.entry_points = None
                 self.error = err
+            else:
+                self.import_names = info.import_names
+                self.metadata = info.metadata
+                self.entry_points = info.entry_points
+                self.checksum = "sha256=" + info.sha256
 
         self.extras_requested = sorted(self.req.extras)
         if parent is None:
@@ -110,7 +119,7 @@ class JohnnyDist:
             return []
         result = []
         for req_str in all_requires:
-            req = requirements.Requirement(req_str)
+            req = Requirement(req_str)
             req_short, _sep, _marker = str(req).partition(";")
             if req.marker is None:
                 # unconditional dependency
@@ -186,7 +195,7 @@ class JohnnyDist:
 
     @cached_property
     def versions_available(self):
-        versions = _get_versions(self.project_name)
+        versions = _get_versions(self.req)
         if self._local_path is not None:
             raw_version = self._local_path.name.split("-")[1]
             local_version = canonicalize_version(raw_version)
@@ -231,7 +240,7 @@ class JohnnyDist:
     def extras_available(self):
         extras = {x for x in self.metadata.get("provides_extra", []) if x}
         for req_str in self.metadata.get("requires_dist", []):
-            req = requirements.Requirement(req_str)
+            req = Requirement(req_str)
             extras |= set(re.findall(r"""extra == ['"](.*?)['"]""", str(req.marker)))
         return sorted(extras)
 
@@ -260,27 +269,9 @@ class JohnnyDist:
     def download_link(self):
         if self._local_path is not None:
             return f"file://{self._local_path}"
-        best = _get_link(self.req)
-        if best is not None:
-            return best.link.url
-
-    @property
-    def checksum(self):
-        if self._local_path is not None:
-            return "md5=" + hashlib.md5(self._local_path.read_bytes()).hexdigest()
-        best = _get_link(self.req)
-        if best.link.hashes:
-            for hash in "md5", "sha256":
-                if hash in best.link.hashes:
-                    return f"{hash}={best.link.hashes[hash]}"
-        f = io.BytesIO()
-        download_dist(
-            url=best.link.url,
-            f=f,
-            index_url=config.index_url,
-            extra_index_url=config.extra_index_url,
-        )
-        return "md5=" + hashlib.md5(f.getvalue()).hexdigest()
+        link = _get_link(self.req)
+        if link is not None:
+            return link.url
 
     def serialise(self, fields=("name", "summary"), recurse=True, format=None):
         if format == "pinned":
@@ -580,37 +571,56 @@ def _get_package_finder():
 
 
 @lru_cache(maxsize=None)
-def _get_versions(req):
+def _get_packages(project_name: str):
     finder = _get_package_finder()
-    matches = finder.find_matches(req, allow_prereleases=True)
-    versions = [p.version for p in matches][::-1]
+    seq = finder.find_all_packages(project_name, allow_yanked=True)
+    result = list(seq)
+    return result
+
+
+def _get_versions(req: Requirement):
+    packages = _get_packages(req.name)
+    versions = {p.version for p in packages}
+    versions = sorted(versions, key=Version)
     return versions
 
 
-@lru_cache(maxsize=None)
-def _get_link(req):
-    package_finder = _get_package_finder()
-    best = package_finder.find_best_match(req, allow_prereleases=True).best
-    return best
+def _get_link(req: Requirement):
+    packages = _get_packages(req.name)
+    ok = (p for p in packages if req.specifier.contains(p.version, prereleases=True))
+    best = next(ok, None)
+    if best is not None:
+        return best.link
+
+
+@dataclass
+class _Info:
+    import_names: list
+    metadata: dict
+    entry_points: EntryPoints
+    sha256: str
 
 
 @lru_cache(maxsize=None)
-def _get_info(dist_name):
-    log = logger.bind(dist_name=dist_name)
+def _get_info(req: Requirement):
+    log = logger.bind(req=str(req))
+    link = _get_link(req)
+    if link is None:
+        raise JohnnyError(f"Package not found {str(req)!r}")
     tmpdir = mkdtemp()
     log.debug("created scratch", tmpdir=tmpdir)
     try:
-        best = _get_link(dist_name)
-        if best is None:
-            raise JohnnyError(f"Package not found {dist_name!r}")
-        dist_path = Path(tmpdir) / best.link.filename
+        dist_path = Path(tmpdir) / link.filename
         with dist_path.open("wb") as f:
             download_dist(
-                url=best.link.url,
+                url=link.url,
                 f=f,
                 index_url=config.index_url,
                 extra_index_url=config.extra_index_url,
             )
+        sha256 = hashlib.sha256(dist_path.read_bytes()).hexdigest()
+        if link.hashes is not None and link.hashes.get("sha256", sha256) != sha256:
+            raise JohnnyError("checksum mismatch")
         if not dist_path.name.endswith("whl"):
             args = [sys.executable, "-m", "uv", "build", "--wheel", str(dist_path)]
             subprocess.run(args, capture_output=True, check=True)
@@ -623,4 +633,5 @@ def _get_info(dist_name):
     finally:
         log.debug("removing scratch", tmpdir=tmpdir)
         rmtree(tmpdir, ignore_errors=True)
-    return import_names, metadata, entry_points
+    result = _Info(import_names, metadata, entry_points, sha256)
+    return result

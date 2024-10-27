@@ -125,15 +125,15 @@ def test_dist_no_children(make_dist):
     assert jdist.children == []
 
 
-def test_checksum_md5(make_dist):
+def test_checksum_sha256(make_dist):
     # the actual checksum value is not repeatable because of timestamps, file modes etc
     # so we just assert that we get a value which looks like a valid checkum
     make_dist()
     jdist = JohnnyDist("jdtest")
     hashtype, sep, hashval = jdist.checksum.partition("=")
-    assert hashtype == "md5"
+    assert hashtype == "sha256"
     assert sep == "="
-    assert len(hashval) == 32
+    assert len(hashval) == 64
     assert set(hashval) <= set("1234567890abcdef")
 
 
@@ -478,7 +478,7 @@ def test_local_whl_pinned(make_dist, mocker):
     # https://github.com/wimglenn/johnnydep/issues/105
     dist_path = make_dist(name="loc", version="1.2.3", callback=None)
     dist = JohnnyDist(dist_path)
-    mocker.patch("unearth.finder.PackageFinder.find_matches", return_value=[])
+    mocker.patch("unearth.finder.PackageFinder.find_all_packages", return_value=[])
     txt = dist.serialise(format="pinned").strip()
     assert txt == "loc==1.2.3"
 
@@ -491,7 +491,7 @@ def test_local_whl_json(make_dist):
     fields = ["download_link", "checksum", "versions_available"]
     txt = dist.serialise(format="json", fields=fields).strip()
     [result] = json.loads(txt)
-    assert result["checksum"].startswith("md5=")
+    assert result["checksum"].startswith("sha256=")
     link = result["download_link"]
     assert link.startswith("file://")
     assert link.endswith("loc-0.1.2-py2.py3-none-any.whl")
@@ -523,15 +523,6 @@ def test_direct_path_version_insort(make_dist, tmp_path):
 
 def test_ignore_errors_version_attrs(mocker):
     mocker.patch("johnnydep.lib._get_info", side_effect=Exception)
-    mocker.patch("unearth.finder.PackageFinder.find_matches", return_value=[])
+    mocker.patch("unearth.finder.PackageFinder.find_all_packages", return_value=[])
     dist = JohnnyDist("notexist", ignore_errors=True)
     assert dist.version_latest is None
-
-
-def test_checksum_from_link(make_dist, mocker):
-    make_dist()
-    dist = JohnnyDist("jdtest")
-    get_link = mocker.patch("johnnydep.lib._get_link")
-    get_link.return_value.link.hashes = {"sha256": "cafef00d"}
-    assert dist.checksum == "sha256=cafef00d"
-    get_link.assert_called_once_with(Requirement("jdtest"))
