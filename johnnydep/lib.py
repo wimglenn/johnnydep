@@ -370,7 +370,7 @@ def gen_tree(johnnydist, with_specifier=True):
 
 
 def gen_table(tree, cols):
-    table = Table(box=rich.box.SIMPLE_HEAVY, safe_box=False)
+    table = Table(box=rich.box.SIMPLE)
     table.add_column("name", overflow="fold")
     for col in cols:
         table.add_column(col, overflow="fold")

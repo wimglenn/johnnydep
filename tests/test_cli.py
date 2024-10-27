@@ -24,7 +24,7 @@ def test_printed_table_on_stdout_with_specifier(make_dist, mocker, capsys):
     assert out == dedent(
         """\
          name     specifier
-        ━━━━━━━━━━━━━━━━━━━━
+        ────────────────────
          jdtest   >=0.1
         """
     )
@@ -42,7 +42,7 @@ def test_printed_tree_on_stdout(mocker, capsys, make_dist):
     assert out == dedent(
         """\
          name              extras_available   extras_requested
-        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        ───────────────────────────────────────────────────────
          thing[xyz]        abc, xyz           xyz
          └── spam>0.30.0
         """
@@ -71,7 +71,7 @@ def test_diamond_deptree(mocker, capsys, make_dist):
     assert out == dedent(
         """\
          name                 specifier   requires         required_by   versions_available   version_latest_in_spec
-        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
          distA                            distB1, distB2                 0.1                  0.1
          ├── distB1                       distC[x,z]<0.3   distA         0.1                  0.1
          │   └── distC[x,z]   <0.3                         distB1        0.1, 0.2, 0.3        0.2
@@ -95,7 +95,7 @@ def test_unresolvable_deptree(mocker, capsys, make_dist):
     assert out == dedent(
         """\
          name             requires                required_by   versions_available   version_latest_in_spec
-        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        ────────────────────────────────────────────────────────────────────────────────────────────────────
          distX            distC<=0.1, distC>0.2                 0.1                  0.1
          ├── distC<=0.1                           distX         0.1, 0.2, 0.3        0.1
          └── distC>0.2                            distX         0.1, 0.2, 0.3        0.3
@@ -169,7 +169,7 @@ def test_ignore_errors_build_error(mocker, capsys, monkeypatch, add_to_index):
     assert out == dedent(
         """\
          name
-        ━━━━━━━━━━━━━━━━━━━━━━━
+        ───────────────────────
          jdt1
          ├── jdt2
          │   ├── jdt3 (FAILED)
@@ -188,7 +188,7 @@ def test_root_has_error(mocker, capsys):
     assert out == dedent(
         """\
          name
-        ━━━━━━━━━━━━━━━━━━
+        ──────────────────
          dist404 (FAILED)
         """
     )
@@ -202,7 +202,7 @@ def test_no_deps(mocker, capsys, make_dist):
     assert out == dedent(
         """\
          name
-        ━━━━━━━
+        ───────
          distA
         """
     )
@@ -220,7 +220,7 @@ def test_circular_deptree(mocker, capsys, make_dist):
     assert out == dedent(
         """\
          name                      summary
-        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        ─────────────────────────────────────────────────────────────────────────────────────────────
          pkg0                      default text for metadata summary
          └── pkg1                  default text for metadata summary
              ├── pkg2              default text for metadata summary
@@ -263,7 +263,7 @@ def test_explicit_env(mocker, make_dist, capsys):
     assert out == dedent(
         """\
          name            summary
-        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        ───────────────────────────────────────────────────
          jdtest==0.1.2   default text for metadata summary
         """
     )

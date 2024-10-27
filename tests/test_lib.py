@@ -418,7 +418,7 @@ def test_get_caching(make_dist, mocker):
     assert txt == dedent(
         """\
          name        summary
-        ━━━━━━━━━━━━━━━━━━━━━━━━
+        ────────────────────────
          a           root node
          ├── b1      branch one
          │   └── c   leaf node
