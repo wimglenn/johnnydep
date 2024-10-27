@@ -10,7 +10,6 @@ from dataclasses import dataclass
 from functools import cached_property
 from functools import lru_cache
 from importlib.metadata import distribution
-from importlib.metadata import EntryPoints
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import PathDistribution
 from pathlib import Path
@@ -597,7 +596,7 @@ def _get_link(req: Requirement):
 class _Info:
     import_names: list
     metadata: dict
-    entry_points: EntryPoints
+    entry_points: list
     sha256: str
 
 
