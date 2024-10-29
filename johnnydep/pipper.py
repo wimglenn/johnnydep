@@ -124,12 +124,14 @@ def get_versions(dist_name, index_url=None, env=None, extra_index_url=None):
     log.debug("checking versions available", dist=bare_name)
     if env is None:
         pip_version = _get_pip_version()
+        exe = sys.executable
     else:
         pip_version = dict(env)["pip_version"]
+        exe = dict(env)["python_executable"]
     if int(pip_version.split(".")[0]) < 24:
         return _get_versions_legacy(dist_name, index_url, env, extra_index_url)
     args = [
-        sys.executable,
+        exe,
         "-m",
         "pip",
         "index",
