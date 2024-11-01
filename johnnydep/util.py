@@ -30,7 +30,11 @@ def python_interpreter(path):
         env = json.loads(env_json.decode())
     except json.JSONDecodeError:
         raise ArgumentTypeError("Invalid python env output")
-    return env
+    for k, v in env.items():
+        if isinstance(v, list):
+            # make result hashable
+            env[k] = tuple(v)
+    return tuple(env.items())
 
 
 class CircularMarker:

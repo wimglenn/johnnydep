@@ -26,16 +26,11 @@ def _urlretrieve(url, f, data=None, auth=None):
     f.flush()
 
 
-def download_dist(url, f, index_url, extra_index_url):
+def download_dist(url, f, index_urls=()):
     auth = None
-    if index_url:
-        parsed = urlparse(index_url)
-        if parsed.username and parsed.password and parsed.hostname == urlparse(url).hostname:
-            # handling private PyPI credentials in index_url
-            auth = (parsed.username, parsed.password)
-    if extra_index_url:
-        parsed = urlparse(extra_index_url)
-        if parsed.username and parsed.password and parsed.hostname == urlparse(url).hostname:
-            # handling private PyPI credentials in extra_index_url
-            auth = (parsed.username, parsed.password)
+    for index_url in index_urls:
+        p = urlparse(index_url)
+        if p.username and p.password and p.hostname == urlparse(url).hostname:
+            # handling private PyPI credentials directly in index_url
+            auth = p.username, p.password
     _urlretrieve(url, f, auth=auth)

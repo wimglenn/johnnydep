@@ -125,7 +125,7 @@ def add_to_index(mocker):
 
     def mock_package_finder(index_urls, target_python, trusted_hosts):
         return PackageFinder(
-            index_urls=[],
+            index_urls=(),
             target_python=target_python,
             find_links=list(find_links),
         )

@@ -26,8 +26,10 @@ def test_bad_python_interpreter_output_triggers_argparse_error(mocker):
 
 def test_good_python_env():
     data = python_interpreter(sys.executable)
-    assert isinstance(data, dict)
-    assert sorted(data) == [
+    assert isinstance(data, tuple)
+    data = dict(data)
+    keys = sorted(data)
+    assert keys == [
         "abis",
         "impl",
         "implementation_name",
@@ -48,7 +50,7 @@ def test_good_python_env():
     ]
     assert data.pop("abis") is None
     assert data.pop("platforms") is None
-    assert data.pop("py_ver") >= [3, 8]
+    assert data.pop("py_ver") >= (3, 8)
     for name, value in data.items():
         assert isinstance(value, str), name
 

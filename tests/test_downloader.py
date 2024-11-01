@@ -4,45 +4,47 @@ from johnnydep.downloader import download_dist
 
 
 @pytest.mark.parametrize(
-    "url, index_url, extra_index_url, expected_auth, expected_top_level_url",
+    "url, index_urls, expected_auth, expected_top_level_url",
     [
         (
             "https://pypi.example.com/packages",
-            "https://pypi.example.com/simple",
-            None,
+            (),
             None,
             None,
         ),
         (
             "https://pypi.example.com/packages",
-            "https://user:pass@pypi.example.com/simple",
+            ("https://pypi.example.com/simple",),
             None,
+            None,
+        ),
+        (
+            "https://pypi.example.com/packages",
+            ("https://user:pass@pypi.example.com/simple",),
             ("user", "pass"),
             "pypi.example.com",
         ),
         (
             "https://pypi.extra.com/packages",
-            "https://user:pass@pypi.example.com/simple",
-            "https://pypi.extra.com/simple",
+            ("https://user:pass@pypi.example.com/simple", "https://pypi.extra.com/simple"),
             None,
             "pypi.example.com",
         ),
         (
             "https://pypi.extra.com/packages",
-            "https://user:pass@pypi.example.com/simple",
-            "https://user:extrapass@pypi.extra.com/simple",
+            ("https://user:pass@pypi.example.com/simple", "https://user:extrapass@pypi.extra.com/simple"),
             ("user", "extrapass"),
             "pypi.extra.com",
         ),
         (
             "https://pypi.extra.com/packages",
-            None,
-            "https://user:extrapass@pypi.extra.com/simple",
+            ("https://user:extrapass@pypi.extra.com/simple",),
             ("user", "extrapass"),
             "pypi.extra.com",
         ),
     ],
     ids=(
+        "empty urls",
         "index_url without auth",
         "index_url with auth",
         "extra_index_url without auth",
@@ -50,7 +52,7 @@ from johnnydep.downloader import download_dist
         "extra_index_url with auth (no index_url)",
     ),
 )
-def test_download_dist_auth(mocker, url, index_url, extra_index_url, expected_auth, expected_top_level_url, tmp_path):
+def test_download_dist_auth(mocker, url, index_urls, expected_auth, expected_top_level_url, tmp_path):
     mgr = mocker.patch("johnnydep.downloader.HTTPPasswordMgrWithDefaultRealm")
     add_password_mock = mgr.return_value.add_password
 
@@ -63,8 +65,7 @@ def test_download_dist_auth(mocker, url, index_url, extra_index_url, expected_au
         download_dist(
             url=url + "/test-0.1.tar.gz",
             f=f,
-            index_url=index_url,
-            extra_index_url=extra_index_url,
+            index_urls=index_urls,
         )
     if expected_auth is None:
         add_password_mock.assert_not_called()

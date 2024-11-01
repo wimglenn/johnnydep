@@ -35,7 +35,6 @@ from rich.table import Table
 from rich.tree import Tree
 from structlog import get_logger
 
-from . import config
 from .dot import jd2dot
 from .downloader import download_dist
 from .util import _bfs
@@ -56,22 +55,23 @@ def get_or_create(req_string):
 
 
 class JohnnyDist:
-    def __init__(self, req_string, parent=None, ignore_errors=False):
+    def __init__(self, req_string, parent=None, index_urls=(), env=None, ignore_errors=False):
         if isinstance(req_string, Path):
             req_string = str(req_string)
         log = self.log = logger.bind(dist=req_string)
         log.info("init johnnydist", parent=parent and str(parent.req))
-        self._children = []
+        self._children = None
         self.parents = []
         if parent is not None:
             self.parents.append(parent)
-        self.ignore_errors = ignore_errors
+        self._ignore_errors = ignore_errors
         self.error = None
-        self._recursed = False
         self.checksum = None
         self.import_names = None
         self.metadata = {}
         self.entry_points = None
+        self._index_urls = index_urls
+        self._env = env
 
         fname, sep, extras = req_string.partition("[")
         if fname.endswith(".whl") and Path(fname).is_file():
@@ -93,9 +93,9 @@ class JohnnyDist:
             self.specifier = str(self.req.specifier)
             log.debug("fetching best wheel")
             try:
-                info = _get_info(self.req)
+                info = _get_info(self.req, self._index_urls, self._env)
             except Exception as err:
-                if not self.ignore_errors:
+                if not self._ignore_errors:
                     raise
                 self.error = err
             else:
@@ -126,7 +126,7 @@ class JohnnyDist:
                 continue
             # conditional dependency - must be evaluated in environment context
             for extra in [None] + self.extras_requested:
-                if req.marker.evaluate(dict(config.env or default_environment(), extra=extra)):
+                if req.marker.evaluate(dict(self._env or default_environment(), extra=extra)):
                     self.log.debug("included conditional dep", req=req_str)
                     result.append(req_short)
                     break
@@ -138,8 +138,8 @@ class JohnnyDist:
     @property
     def children(self):
         """my immediate deps, as a tuple of johnnydists"""
-        if not self._recursed:
-            assert not self._children
+        if self._children is None:
+            self._children = []
             self.log.debug("populating dep graph")
             circular_deps = _detect_circular(self)
             if circular_deps:
@@ -153,10 +153,11 @@ class JohnnyDist:
                     child = JohnnyDist(
                         req_string=dep,
                         parent=self,
-                        ignore_errors=self.ignore_errors,
+                        index_urls=self._index_urls,
+                        env=self._env,
+                        ignore_errors=self._ignore_errors,
                     )
                     self._children.append(child)
-            self._recursed = True
         return self._children
 
     @property
@@ -194,7 +195,7 @@ class JohnnyDist:
 
     @cached_property
     def versions_available(self):
-        versions = _get_versions(self.req)
+        versions = _get_versions(self.req, self._index_urls, self._env)
         if self._local_path is not None:
             raw_version = self._local_path.name.split("-")[1]
             local_version = canonicalize_version(raw_version)
@@ -268,7 +269,7 @@ class JohnnyDist:
     def download_link(self):
         if self._local_path is not None:
             return f"file://{self._local_path}"
-        link = _get_link(self.req)
+        link = _get_link(self.req, self._index_urls, self._env)
         if link is not None:
             return link.url
 
@@ -451,7 +452,13 @@ def flatten_deps(johnnydist):
                 extra = f"[{','.join(sorted(extras))}]"
             else:
                 extra = ""
-            dist = JohnnyDist(req_string=f"{name}{extra}{spec}")
+            dist = JohnnyDist(
+                req_string=f"{name}{extra}{spec}",
+                index_urls=johnnydist._index_urls,
+                env=johnnydist._env,
+                ignore_errors=johnnydist._ignore_errors,
+            )
+            # TODO: set parents
             dist.required_by = required_by
             yield dist
             # TODO: check if this new version causes any new reqs!!
@@ -542,23 +549,21 @@ def has_error(dist):
     return any(has_error(n) for n in dist.children)
 
 
-def _get_package_finder():
-    index_urls = []
-    trusted_hosts = []
-    if config.index_url:
-        index_urls.append(config.index_url)
-        trusted_hosts.append(urlparse(config.index_url).hostname)
-    if config.extra_index_url:
-        index_urls.append(config.extra_index_url)
-        trusted_hosts.append(urlparse(config.extra_index_url).hostname)
+def _get_package_finder(index_urls, env):
+    trusted_hosts = ()
+    for index_url in index_urls:
+        host = urlparse(index_url).hostname
+        if host != "pypi.org":
+            trusted_hosts += (host,)
     target_python = None
-    if config.env is not None:
+    if env is not None:
+        envd = dict(env)
         target_python = unearth.TargetPython(
-            py_ver=config.env["py_ver"],
-            impl=config.env["impl"],
+            py_ver=envd["py_ver"],
+            impl=envd["impl"],
         )
         valid_tags = []
-        for tag in config.env["supported_tags"].split(","):
+        for tag in envd["supported_tags"].split(","):
             valid_tags.extend(parse_tag(tag))
         target_python._valid_tags = valid_tags
     package_finder = unearth.PackageFinder(
@@ -570,22 +575,22 @@ def _get_package_finder():
 
 
 @lru_cache(maxsize=None)
-def _get_packages(project_name: str):
-    finder = _get_package_finder()
+def _get_packages(project_name: str, index_urls: tuple, env: tuple):
+    finder = _get_package_finder(index_urls, env)
     seq = finder.find_all_packages(project_name, allow_yanked=True)
     result = list(seq)
     return result
 
 
-def _get_versions(req: Requirement):
-    packages = _get_packages(req.name)
+def _get_versions(req: Requirement, index_urls: tuple, env: tuple):
+    packages = _get_packages(req.name, index_urls, env)
     versions = {p.version for p in packages}
     versions = sorted(versions, key=Version)
     return versions
 
 
-def _get_link(req: Requirement):
-    packages = _get_packages(req.name)
+def _get_link(req: Requirement, index_urls: tuple, env: tuple):
+    packages = _get_packages(req.name, index_urls, env)
     ok = (p for p in packages if req.specifier.contains(p.version, prereleases=True))
     best = next(ok, None)
     if best is not None:
@@ -601,9 +606,9 @@ class _Info:
 
 
 @lru_cache(maxsize=None)
-def _get_info(req: Requirement):
+def _get_info(req: Requirement, index_urls: tuple, env: tuple):
     log = logger.bind(req=str(req))
-    link = _get_link(req)
+    link = _get_link(req, index_urls, env)
     if link is None:
         raise JohnnyError(f"Package not found {str(req)!r}")
     tmpdir = mkdtemp()
@@ -611,12 +616,7 @@ def _get_info(req: Requirement):
     try:
         dist_path = Path(tmpdir) / link.filename
         with dist_path.open("wb") as f:
-            download_dist(
-                url=link.url,
-                f=f,
-                index_url=config.index_url,
-                extra_index_url=config.extra_index_url,
-            )
+            download_dist(url=link.url, f=f, index_urls=index_urls)
         sha256 = hashlib.sha256(dist_path.read_bytes()).hexdigest()
         if link.hashes is not None and link.hashes.get("sha256", sha256) != sha256:
             raise JohnnyError("checksum mismatch")

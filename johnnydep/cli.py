@@ -4,7 +4,6 @@ from argparse import ArgumentParser
 from importlib.metadata import version
 
 import johnnydep
-from . import config
 from .lib import has_error
 from .lib import JohnnyDist
 from .logs import configure_logging
@@ -121,11 +120,20 @@ def main(argv=None, stdout=None):
     if "ALL" in args.fields:
         args.fields = list(FIELDS)
     configure_logging(verbosity=args.verbose)
-    config.index_url = args.index_url
-    config.extra_index_url = args.extra_index_url
-    if args.env is not None:
-        config.env = args.env
-    dist = JohnnyDist(args.req, ignore_errors=args.ignore_errors)
+    if args.extra_index_url and not args.index_url:
+        index_urls = ("https://pypi.org/simple", args.extra_index_url)
+    else:
+        index_urls = ()
+        if args.index_url:
+            index_urls += (args.index_url,)
+        if args.extra_index_url:
+            index_urls += (args.extra_index_url,)
+    dist = JohnnyDist(
+        args.req,
+        index_urls=index_urls,
+        env=args.env,
+        ignore_errors=args.ignore_errors,
+    )
     rendered = dist.serialise(
         fields=args.fields,
         format=args.output_format,
