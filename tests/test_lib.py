@@ -1,10 +1,11 @@
 import json
 import os
-from subprocess import CalledProcessError
 from textwrap import dedent
 
 import pytest
+from packaging.requirements import Requirement
 
+from johnnydep import lib
 from johnnydep.lib import flatten_deps
 from johnnydep.lib import JohnnyDist
 from johnnydep.lib import JohnnyError
@@ -13,11 +14,8 @@ from johnnydep.lib import JohnnyError
 def test_version_nonexisting(make_dist):
     # v0.404 does not exist in index
     make_dist()
-    with pytest.raises(CalledProcessError) as cm:
+    with pytest.raises(JohnnyError("Package not found 'jdtest==0.404'")):
         JohnnyDist("jdtest==0.404")
-    msg = "DistributionNotFound: No matching distribution found for jdtest==0.404" + os.linesep
-    txt = cm.value.output.decode()
-    assert msg in txt
 
 
 def test_import_names_empty(make_dist):
@@ -41,7 +39,7 @@ def test_version_installed(make_dist):
 def test_version_not_installed(make_dist):
     make_dist()
     jdist = JohnnyDist("jdtest")
-    assert jdist.version_installed is None
+    assert not jdist.version_installed
 
 
 def test_version_latest(make_dist):
@@ -72,16 +70,6 @@ def test_version_latest_in_spec_prerelease_chosen(make_dist):
     assert jdist.version_latest_in_spec == "0.2a0"
 
 
-def test_version_latest_in_spec_prerelease_out_of_spec(make_dist):
-    make_dist(version="0.1")
-    make_dist(version="0.2a0")
-    with pytest.raises(CalledProcessError) as cm:
-        JohnnyDist("jdtest>0.1")
-    msg = "DistributionNotFound: No matching distribution found for jdtest>0.1" + os.linesep
-    txt = cm.value.output.decode()
-    assert msg in txt
-
-
 def test_version_pinned_to_latest_in_spec(make_dist):
     make_dist(version="1.2.3")
     make_dist(version="2.3.4")
@@ -102,11 +90,8 @@ def test_version_in_spec_not_avail(make_dist):
     make_dist(version="1.2.3")
     make_dist(version="2.3.4")
     make_dist(version="3.4.5")
-    with pytest.raises(CalledProcessError) as cm:
+    with pytest.raises(JohnnyError("Package not found 'jdtest>4'")):
         JohnnyDist("jdtest>4")
-    msg = "DistributionNotFound: No matching distribution found for jdtest>4" + os.linesep
-    txt = cm.value.output.decode()
-    assert msg in txt
 
 
 def test_project_name_different_from_canonical_name(make_dist):
@@ -137,36 +122,30 @@ def test_no_homepage(make_dist):
 def test_dist_no_children(make_dist):
     make_dist()
     jdist = JohnnyDist("jdtest")
-    assert jdist.children == ()
+    assert jdist.children == []
 
 
-def test_download_link(make_dist):
-    make_dist()
-    jdist = JohnnyDist("jdtest")
-    # this link is coming from a faked package index set up in conftest.py
-    assert jdist.download_link == "http://fakeindex/jdtest-0.1.2-py2.py3-none-any.whl"
-
-
-def test_checksum_md5(make_dist):
+def test_checksum_sha256(make_dist):
     # the actual checksum value is not repeatable because of timestamps, file modes etc
     # so we just assert that we get a value which looks like a valid checkum
     make_dist()
     jdist = JohnnyDist("jdtest")
     hashtype, sep, hashval = jdist.checksum.partition("=")
-    assert hashtype == "md5"
+    assert hashtype == "sha256"
     assert sep == "="
-    assert len(hashval) == 32
+    assert len(hashval) == 64
     assert set(hashval) <= set("1234567890abcdef")
 
 
-def test_scratch_dirs_are_being_cleaned_up(make_dist, mocker, tmp_path):
+def test_scratch_dirs_are_being_cleaned_up(make_dist, mocker):
     make_dist()
-    scratch = str(tmp_path)
-    mkdtemp = mocker.patch("johnnydep.lib.mkdtemp", return_value=scratch)
-    rmtree = mocker.patch("johnnydep.lib.rmtree")
+    mkdtemp = mocker.spy(lib, "mkdtemp")
+    rmtree = mocker.spy(lib, "rmtree")
     JohnnyDist("jdtest")
     mkdtemp.assert_called_once_with()
+    [scratch] = mkdtemp.spy_return_list
     rmtree.assert_called_once_with(scratch, ignore_errors=True)
+    assert not os.path.exists(scratch)
 
 
 def test_extras_available_none(make_dist):
@@ -260,7 +239,7 @@ def test_children(make_dist):
     jdist = JohnnyDist("parent")
     [child] = jdist.children
     assert isinstance(child, JohnnyDist)
-    assert isinstance(jdist.children, tuple)
+    assert isinstance(jdist.children, list)
     assert child.name == "child"
 
 
@@ -288,10 +267,10 @@ def test_serialiser_toml(make_dist):
     make_dist()
     jdist = JohnnyDist("jdtest")
     assert jdist.serialise(format="toml") == dedent(
-        """\
+        '''\
         name = "jdtest"
         summary = "default text for metadata summary"
-        """
+        '''
     )
 
 
@@ -403,11 +382,8 @@ def test_resolve_unresolvable(make_dist):
     ]
     gen = flatten_deps(dist)
     assert next(gen) is dist
-    with pytest.raises(CalledProcessError) as cm:
+    with pytest.raises(JohnnyError("Package not found 'dist2<=0.1,>0.2'")):
         next(gen)
-    msg = "DistributionNotFound: No matching distribution found for dist2<=0.1,>0.2" + os.linesep
-    txt = cm.value.output.decode()
-    assert msg in txt
 
 
 def test_pprint(make_dist, mocker):
@@ -430,36 +406,30 @@ def test_pprint(make_dist, mocker):
 
 def test_get_caching(make_dist, mocker):
     # this test is trying to make sure that distribution "c", a node which appears
-    # twice in the dependency tree, is only downloaded from the index once.
-    # i.e. check that the ttl caching on the downloader is working correctly
-    downloader = mocker.patch("johnnydep.lib.pipper.get")
-    _, c, _ = make_dist(name="c", description="leaf node")
-    _, b1, _ = make_dist(name="b1", install_requires=["c"], description="branch one")
-    _, b2, _ = make_dist(name="b2", install_requires=["c"], description="branch two")
-    _, a, _ = make_dist(name="a", install_requires=["b1", "b2"], description="root node")
-    downloader.side_effect = [
-        {"path": a},
-        {"path": b1},
-        {"path": b2},
-        {"path": c},
-    ]
+    # twice in the dependency graph, is only downloaded from the index once.
+    # i.e. check that the caching on the downloader is working correctly.
+    make_dist(name="c", description="leaf node")
+    make_dist(name="b1", install_requires=["c"], description="branch one")
+    make_dist(name="b2", install_requires=["c"], description="branch two")
+    make_dist(name="a", install_requires=["b1", "b2"], description="root node")
+    spy = mocker.spy(lib, "download_dist")
     jdist = JohnnyDist("a")
     txt = jdist.serialise(format="human")
-    assert txt == dedent("""\
-        name       summary
-        ---------  ----------
-        a          root node
-        ├── b1     branch one
-        │   └── c  leaf node
-        └── b2     branch two
-            └── c  leaf node""")
-    assert downloader.call_count == 4
-    assert downloader.call_args_list == [
-        mocker.call("a", env=None, extra_index_url=None, index_url=None, tmpdir=mocker.ANY),
-        mocker.call("b1", env=None, extra_index_url=None, index_url=None, tmpdir=mocker.ANY),
-        mocker.call("b2", env=None, extra_index_url=None, index_url=None, tmpdir=mocker.ANY),
-        mocker.call("c", env=None, extra_index_url=None, index_url=None, tmpdir=mocker.ANY),
-    ]
+    assert txt == dedent(
+        """\
+         name        summary
+        ────────────────────────
+         a           root node
+         ├── b1      branch one
+         │   └── c   leaf node
+         └── b2      branch two
+             └── c   leaf node"""
+    )
+    assert spy.call_count == 4
+    downloads = [call.kwargs["url"] for call in spy.call_args_list]
+    filenames = [download.split("/")[-1] for download in downloads]
+    distnames = [filename.split("-")[0] for filename in filenames]
+    assert distnames == ["a", "b1", "b2", "c"]
 
 
 def test_extras_parsing(make_dist):
@@ -493,7 +463,7 @@ def test_ignore_errors(make_dist):
     assert len(dist.children) == 1
     assert dist.children[0].name == "distb1"
     assert dist.children[0].error is not None
-    assert "No matching distribution found for distB1>=1.0" in dist.children[0].error.output.decode("utf-8")
+    assert "Package not found 'distB1>=1.0'" in str(dist.children[0].error)
 
 
 def test_flatten_failed(make_dist):
@@ -504,25 +474,24 @@ def test_flatten_failed(make_dist):
         list(flatten_deps(dist))
 
 
-def test_local_whl_pinned(make_dist):
+def test_local_whl_pinned(make_dist, mocker):
     # https://github.com/wimglenn/johnnydep/issues/105
-    dist, dist_path, md5 = make_dist(name="loc", version="1.2.3", callback=None)
+    dist_path = make_dist(name="loc", version="1.2.3", callback=None)
     dist = JohnnyDist(dist_path)
+    mocker.patch("unearth.finder.PackageFinder.find_all_packages", return_value=[])
     txt = dist.serialise(format="pinned").strip()
     assert txt == "loc==1.2.3"
 
 
 def test_local_whl_json(make_dist):
     make_dist(name="loc", version="0.1.1")
-    dist, dist_path, md5 = make_dist(name="loc", version="0.1.2", callback=None)
+    dist_path = make_dist(name="loc", version="0.1.2", callback=None)
     make_dist(name="loc", version="0.1.3")
     dist = JohnnyDist(dist_path)
     fields = ["download_link", "checksum", "versions_available"]
     txt = dist.serialise(format="json", fields=fields).strip()
     [result] = json.loads(txt)
-    algo, checksum = result["checksum"].split("=")
-    assert algo == "md5"
-    assert checksum == md5
+    assert result["checksum"].startswith("sha256=")
     link = result["download_link"]
     assert link.startswith("file://")
     assert link.endswith("loc-0.1.2-py2.py3-none-any.whl")
@@ -539,3 +508,21 @@ def test_entry_points(make_dist):
     assert ep.group == "console_scripts"
     assert ep.value == "mypkg.mymod:foo"
     assert dist.console_scripts == ["my-script = mypkg.mymod:foo"]
+
+
+def test_direct_path_version_insort(make_dist, tmp_path):
+    make_dist(name="foo", version="0.1.1")
+    make_dist(name="foo", version="0.1.3")
+    ext_path = tmp_path / "ext"
+    ext_path.mkdir()
+    path = make_dist(scratch_path=ext_path, name="foo", version="0.1.2", callback=None)
+    dist = JohnnyDist(path)
+    assert dist.specifier == "==0.1.2"
+    assert dist.versions_available == ["0.1.1", "0.1.2", "0.1.3"]
+
+
+def test_ignore_errors_version_attrs(mocker):
+    mocker.patch("johnnydep.lib._get_info", side_effect=Exception)
+    mocker.patch("unearth.finder.PackageFinder.find_all_packages", return_value=[])
+    dist = JohnnyDist("notexist", ignore_errors=True)
+    assert dist.version_latest is None

@@ -4,10 +4,10 @@ from argparse import ArgumentParser
 from importlib.metadata import version
 
 import johnnydep
-from johnnydep.lib import has_error
-from johnnydep.lib import JohnnyDist
-from johnnydep.logs import configure_logging
-from johnnydep.util import python_interpreter
+from .lib import has_error
+from .lib import JohnnyDist
+from .logs import configure_logging
+from .util import python_interpreter
 
 
 FIELDS = {
@@ -120,11 +120,18 @@ def main(argv=None, stdout=None):
     if "ALL" in args.fields:
         args.fields = list(FIELDS)
     configure_logging(verbosity=args.verbose)
+    if args.extra_index_url and not args.index_url:
+        index_urls = ("https://pypi.org/simple", args.extra_index_url)
+    else:
+        index_urls = ()
+        if args.index_url:
+            index_urls += (args.index_url,)
+        if args.extra_index_url:
+            index_urls += (args.extra_index_url,)
     dist = JohnnyDist(
         args.req,
-        index_url=args.index_url,
+        index_urls=index_urls,
         env=args.env,
-        extra_index_url=args.extra_index_url,
         ignore_errors=args.ignore_errors,
     )
     rendered = dist.serialise(

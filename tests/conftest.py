@@ -1,26 +1,22 @@
-import hashlib
-import os.path
-import subprocess
-import sys
+import os
+import shutil
+import tempfile
 from importlib.metadata import version
+from pathlib import Path
 
 import pytest
 import whl
+from unearth import PackageFinder
 from wimpy import working_directory
 
 from johnnydep import cli
 from johnnydep import dot
 from johnnydep import lib
-from johnnydep import pipper
-
-
-original_check_output = subprocess.check_output
 
 
 @pytest.fixture(autouse=True)
 def expire_caches():
-    pipper.get_versions.cache_clear()
-    pipper._get_cache.clear()
+    lib._get_packages.cache_clear()
     lib._get_info.cache_clear()
 
 
@@ -61,7 +57,9 @@ default_setup_kwargs = dict(
 )
 
 
-def make_wheel(scratch_dir="/tmp/jdtest", callback=None, **extra):
+def make_wheel(scratch_path=None, callback=None, **extra):
+    if scratch_path is None:
+        scratch_path = Path(tempfile.gettempdir())
     kwargs = default_setup_kwargs.copy()
     kwargs.update(extra)
     name = kwargs["name"]
@@ -79,8 +77,6 @@ def make_wheel(scratch_dir="/tmp/jdtest", callback=None, **extra):
         if not kwargs.get("requires_dist"):
             kwargs["requires_dist"] = []
         for extra, reqs in extras.items():
-            if isinstance(reqs, str):
-                reqs = [reqs]
             for req in reqs:
                 if ";" in req:
                     req, marker = req.split(";")
@@ -92,10 +88,7 @@ def make_wheel(scratch_dir="/tmp/jdtest", callback=None, **extra):
     if "url" in kwargs:
         kwargs["home_page"] = kwargs.pop("url")
     if "platforms" in kwargs:
-        platforms = kwargs.pop("platforms")
-        if isinstance(platforms, str):
-            platforms = [p.strip() for p in platforms.split(",")]
-        kwargs["platform"] = platforms
+        kwargs["platform"] = kwargs.pop("platforms")
     if "classifiers" in kwargs:
         kwargs["classifier"] = kwargs.pop("classifiers")
 
@@ -105,102 +98,65 @@ def make_wheel(scratch_dir="/tmp/jdtest", callback=None, **extra):
     if py_modules:
         kwargs["src"] = []
 
-    with working_directory(scratch_dir):
+    with working_directory(scratch_path):
         for fname in py_modules:
-            if os.path.exists(fname):
-                raise Exception(f"already exists: {fname}")
+            assert not Path(fname).exists()
             with open(fname + ".py", "w"):
                 pass
-            kwargs["src"].append(os.path.join(scratch_dir, fname + ".py"))
-        dist = whl.make_wheel(**kwargs)
+            kwargs["src"].append(f"{scratch_path / fname}" + ".py")
+        dist_path = Path(whl.make_wheel(**kwargs)).resolve()
 
-    dist_path = os.path.join(scratch_dir, f"{name}-{version}-py2.py3-none-any.whl")
-    with open(dist_path, mode="rb") as f:
-        md5 = hashlib.md5(f.read()).hexdigest()
+    fname = f"{name.replace('-', '_')}-{version}-py2.py3-none-any.whl"
+    assert dist_path == scratch_path.resolve() / fname
     if callback is not None:
         # contribute to test index
-        callback(name=name, path=dist_path, urlfragment="#md5=" + md5)
+        callback(dist_path)
 
-    return dist, dist_path, md5
+    return dist_path
 
 
 @pytest.fixture
-def add_to_index():
-    index_data = {}
+def add_to_index(mocker):
 
-    def add_package(name, path, urlfragment=""):
-        index_data[path] = (name, urlfragment)
+    find_links = set()
 
-    add_package.index_data = index_data
+    def add_package(path):
+        find_links.add(path.parent)
+
+    def mock_package_finder(index_urls, target_python, trusted_hosts):
+        return PackageFinder(
+            index_urls=(),
+            target_python=target_python,
+            find_links=list(find_links),
+        )
+
+    mocker.patch("unearth.PackageFinder", mock_package_finder)
     yield add_package
 
 
 @pytest.fixture
 def make_dist(tmp_path, add_to_index):
     def f(**kwargs):
-        if "callback" not in kwargs:
-            kwargs["callback"] = add_to_index
-        if "scratch_dir" not in kwargs:
-            kwargs["scratch_dir"] = str(tmp_path)
+        kwargs.setdefault("callback", add_to_index)
+        kwargs.setdefault("scratch_path", tmp_path)
         return make_wheel(**kwargs)
 
     return f
 
 
-@pytest.fixture(autouse=True)
-def fake_subprocess(mocker, add_to_index):
-
-    index_data = add_to_index.index_data
-    subprocess_check_output = subprocess.check_output
-
-    def wheel_proc(args, stderr, cwd=None):
-        exe = args[0]
-        req = args[-1]
-        args = [
-            exe,
-            "-m",
-            "pip",
-            "wheel",
-            "-vvv",
-            "--no-index",
-            "--no-deps",
-            "--no-cache-dir",
-            "--disable-pip-version-check",
-        ]
-        args.extend([f"--find-links={p}" for p in index_data])
-        args.append(req)
-        output = subprocess_check_output(args, stderr=stderr, cwd=cwd)
-        lines = output.decode().splitlines()
-        for line in lines:
-            line = line.strip()
-            if line.startswith("Saved "):
-                fname = line.split("/")[-1].split("\\")[-1]
-                inject = "{0}  Downloading from URL http://fakeindex/{1}{0}".format(os.linesep, fname)
-                output += inject.encode()
-                break
-        return output
-
-    mocker.patch("johnnydep.pipper.check_output", wheel_proc)
-
-
-@pytest.fixture
-def fake_pip(mocker):
-    mocker.patch("johnnydep.pipper.check_output", original_check_output)
-
-    def local_files_args(index_url, env, extra_index_url):
-        test_dir = os.path.abspath(os.path.join(__file__, os.pardir))
-        canned = f"file://{os.path.join(test_dir, 'test_deps')}"
-        args = [
-            sys.executable,
-            "-m",
-            "pip",
-            "wheel",
-            "-vvv",
-            "--no-index",
-            "--no-deps",
-            "--no-cache-dir",
-            "--disable-pip-version-check",
-            f"--find-links={canned}",
-        ]
-        return args
-    mocker.patch("johnnydep.pipper._get_wheel_args", local_files_args)
+def pytest_assertrepr_compare(config, op, left, right):
+    # https://docs.pytest.org/en/latest/reference/reference.html#pytest.hookspec.pytest_assertrepr_compare
+    if isinstance(left, str) and isinstance(right, str) and op == "==":
+        left_lines = left.splitlines()
+        right_lines = right.splitlines()
+        if len(left_lines) > 1 or len(right_lines) > 1:
+            width, _ = shutil.get_terminal_size(fallback=(80, 24))
+            width = max(width, 40) - 10
+            lines = [
+                "When comparing multiline strings:",
+                f" LEFT ({len(left)}) ".center(width, "="),
+                *left_lines,
+                f" RIGHT ({len(right)}) ".center(width, "="),
+                *right_lines,
+            ]
+            return lines
