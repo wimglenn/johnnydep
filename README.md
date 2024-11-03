@@ -1,4 +1,6 @@
-[![Build Status](https://github.com/wimglenn/djangorestframework-queryfields/actions/workflows/main.yml/badge.svg)](https://github.com/wimglenn/djangorestframework-queryfields/actions/workflows/main.yml/) [![Coverage Status](https://codecov.io/gh/wimglenn/johnnydep/branch/master/graph/badge.svg)](https://codecov.io/gh/wimglenn/johnnydep) [![PyPI](https://img.shields.io/pypi/v/johnnydep.svg)](https://pypi.org/project/johnnydep/)
+[![Build Status](https://github.com/wimglenn/djangorestframework-queryfields/actions/workflows/main.yml/badge.svg)](https://github.com/wimglenn/djangorestframework-queryfields/actions/workflows/main.yml/)
+[![Coverage Status](https://codecov.io/gh/wimglenn/johnnydep/branch/master/graph/badge.svg)](https://codecov.io/gh/wimglenn/johnnydep)
+[![PyPI](https://img.shields.io/pypi/v/johnnydep.svg)](https://pypi.org/project/johnnydep/)
 
 Johnnydep
 =========
