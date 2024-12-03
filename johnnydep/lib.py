@@ -8,7 +8,6 @@ from collections import defaultdict
 from collections import deque
 from dataclasses import dataclass
 from functools import cached_property
-from functools import lru_cache
 from importlib.metadata import distribution
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import PathDistribution
@@ -40,6 +39,7 @@ from .downloader import download_dist
 from .util import _bfs
 from .util import _un_none
 from .util import CircularMarker
+from .util import lru_cache_ttl
 
 __all__ = ["JohnnyDist", "gen_table", "gen_tree", "flatten_deps", "has_error", "JohnnyError"]
 
@@ -574,7 +574,7 @@ def _get_package_finder(index_urls, env):
     return package_finder
 
 
-@lru_cache(maxsize=None)
+@lru_cache_ttl()
 def _get_packages(project_name: str, index_urls: tuple, env: tuple):
     finder = _get_package_finder(index_urls, env)
     seq = finder.find_all_packages(project_name, allow_yanked=True)
@@ -605,7 +605,7 @@ class _Info:
     sha256: str
 
 
-@lru_cache(maxsize=None)
+@lru_cache_ttl()
 def _get_info(req: Requirement, index_urls: tuple, env: tuple):
     log = logger.bind(req=str(req))
     link = _get_link(req, index_urls, env)

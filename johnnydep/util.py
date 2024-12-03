@@ -1,10 +1,14 @@
 import json
 import os
+import sys
 from argparse import ArgumentTypeError
 from collections import deque
+from functools import lru_cache
+from functools import wraps
 from pathlib import Path
 from subprocess import CalledProcessError
 from subprocess import check_output
+from time import monotonic
 
 import structlog
 import unearth
@@ -50,6 +54,7 @@ class CircularMarker:
     Everything is null except the req/name which is "..." and
     the metadata summary, which can be provided by the caller
     """
+
     glyph = "..."
 
     def __init__(self, summary, parent):
@@ -80,3 +85,37 @@ def _bfs(jdist):
 def _un_none(d):
     # toml can't serialize None
     return {k: v for k, v in d.items() if v is not None}
+
+
+def lru_cache_ttl(maxsize=128, typed=False, ttl=60):
+    """Least-recently used cache with time-to-live limit."""
+
+    class Result:
+        __slots__ = ("value", "expiry")
+
+        def __init__(self, value, expiry):
+            self.value = value
+            self.expiry = expiry
+
+    def decorator(func):
+        @lru_cache(maxsize=maxsize, typed=typed)
+        def cached_func(*args, **kwargs):
+            value = func(*args, **kwargs)
+            expiry = monotonic() + ttl
+            return Result(value, expiry)
+
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            result = cached_func(*args, **kwargs)
+            if monotonic() > result.expiry:
+                result.value = func(*args, **kwargs)
+                result.expiry = monotonic() + ttl
+            return result.value
+
+        wrapper.cache_clear = cached_func.cache_clear
+        wrapper.cache_info = cached_func.cache_info
+        if sys.version_info >= (3, 9):
+            wrapper.cache_parameters = cached_func.cache_parameters
+        return wrapper
+
+    return decorator
