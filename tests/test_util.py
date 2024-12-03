@@ -8,10 +8,12 @@ from johnnydep import JohnnyDist
 from johnnydep.cli import FIELDS
 from johnnydep.util import CircularMarker
 from johnnydep.util import python_interpreter
+from johnnydep.util import lru_cache_ttl
 
 
 def test_bad_python_interpreter_triggers_argparse_error(mocker):
-    mocker.patch("johnnydep.util.check_output", side_effect=CalledProcessError(1, "boom"))
+    err = CalledProcessError(1, "boom")
+    mocker.patch("johnnydep.util.check_output", side_effect=err)
     with pytest.raises(ArgumentTypeError) as cm:
         python_interpreter("whatever")
     assert str(cm.value) == "Invalid python env call"
@@ -70,3 +72,34 @@ def test_placeholder_attr():
     assert cm.__doc__ is not None
     with pytest.raises(AttributeError):
         cm._blah
+
+
+def test_ttl_cache_hit(capsys):
+
+    @lru_cache_ttl()
+    def add(x, y):
+        print("add", x, y)
+        return x + y
+
+    assert add(1, 2) == 3
+    assert add(1, 2) == 3
+    assert add(2, 3) == 5
+    out, err = capsys.readouterr()
+    assert out == "add 1 2\nadd 2 3\n"
+    assert not err
+
+
+def test_ttl_cache_miss(mocker, capsys):
+
+    @lru_cache_ttl()
+    def add(x, y):
+        print("add", x, y)
+        return x + y
+
+    mock = mocker.patch("johnnydep.util.monotonic", side_effect=(0, 1, 61, 62))
+    assert add(1, 2) == 3
+    assert add(1, 2) == 3
+    out, err = capsys.readouterr()
+    assert out == "add 1 2\nadd 1 2\n"
+    assert not err
+    assert mock.call_count == 4

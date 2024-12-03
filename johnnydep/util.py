@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 from argparse import ArgumentTypeError
 from collections import deque
 from functools import lru_cache
@@ -106,12 +107,15 @@ def lru_cache_ttl(maxsize=128, typed=False, ttl=60):
         @wraps(func)
         def wrapper(*args, **kwargs):
             result = cached_func(*args, **kwargs)
-            if result.expiry < monotonic():
+            if monotonic() > result.expiry:
                 result.value = func(*args, **kwargs)
                 result.expiry = monotonic() + ttl
             return result.value
 
         wrapper.cache_clear = cached_func.cache_clear
+        wrapper.cache_info = cached_func.cache_info
+        if sys.version_info >= (3, 9):
+            wrapper.cache_parameters = cached_func.cache_parameters
         return wrapper
 
     return decorator
