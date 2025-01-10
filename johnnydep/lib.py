@@ -15,6 +15,7 @@ from pathlib import Path
 from shutil import rmtree
 from tempfile import mkdtemp
 from textwrap import dedent
+from unittest.mock import patch
 from urllib.parse import urlparse
 from zipfile import Path as zipfile_path
 from zipfile import ZipFile
@@ -291,7 +292,8 @@ class JohnnyDist:
                 tree.dist = self
             table = gen_table(tree, cols=cols)
             buf = io.StringIO()
-            rich.print(table, file=buf)
+            with patch.dict("os.environ", COLUMNS="1000"):
+                rich.print(table, file=buf)
             raw = buf.getvalue()
             stripped = "\n".join([x.rstrip() for x in raw.splitlines() if x.strip()])
             result = dedent(stripped)
@@ -372,9 +374,9 @@ def gen_tree(johnnydist, with_specifier=True):
 
 def gen_table(tree, cols):
     table = Table(box=rich.box.SIMPLE)
-    table.add_column("name", overflow="fold")
+    table.add_column("name", overflow="fold", no_wrap=True)
     for col in cols:
-        table.add_column(col, overflow="fold")
+        table.add_column(col, overflow="fold", no_wrap=True)
     rows = []
     stack = [tree]
     while stack:
@@ -382,7 +384,8 @@ def gen_table(tree, cols):
         rows.append(node)
         stack += reversed(node.children)
     buf = io.StringIO()
-    rich.print(tree, file=buf)
+    with patch.dict("os.environ", COLUMNS="1000"):
+        rich.print(tree, file=buf)
     tree_lines = buf.getvalue().splitlines()
     for row0, row in zip(tree_lines, rows):
         data = [getattr(row.dist, c) for c in cols]
