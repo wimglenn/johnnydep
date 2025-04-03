@@ -125,15 +125,29 @@ def test_dist_no_children(make_dist):
     assert jdist.children == []
 
 
-def test_checksum_sha256(make_dist):
+def test_checksums(make_dist):
     # the actual checksum value is not repeatable because of timestamps, file modes etc
     # so we just assert that we get a value which looks like a valid checkum
     make_dist()
     jdist = JohnnyDist("jdtest")
-    hashtype, sep, hashval = jdist.checksum.partition("=")
+    sha256_checksum, sha1_checksum, md5_checksum = jdist.checksum.split(",")
+    # sha256
+    hashtype, sep, hashval = sha256_checksum.partition("=")
     assert hashtype == "sha256"
     assert sep == "="
     assert len(hashval) == 64
+    assert set(hashval) <= set("1234567890abcdef")
+    # sha1
+    hashtype, sep, hashval = sha1_checksum.partition("=")
+    assert hashtype == "sha1"
+    assert sep == "="
+    assert len(hashval) == 40
+    assert set(hashval) <= set("1234567890abcdef")
+    # md5
+    hashtype, sep, hashval = md5_checksum.partition("=")
+    assert hashtype == "md5"
+    assert sep == "="
+    assert len(hashval) == 32
     assert set(hashval) <= set("1234567890abcdef")
 
 

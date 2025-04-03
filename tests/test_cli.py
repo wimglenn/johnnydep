@@ -49,6 +49,27 @@ def test_printed_tree_on_stdout(mocker, capsys, make_dist):
     )
 
 
+def test_printed_tree_on_output_file(mocker, capsys, make_dist):
+    make_dist(name="thing", extras_require={"xyz": ["spam>0.30.0"], "abc": ["eggs"]})
+    make_dist(name="spam", version="0.31")
+    make_dist(name="eggs")
+    argv = "johnnydep thing[xyz] --fields extras_available extras_requested --output-file ./test_printed_tree_on_output_file.log".split()
+    mocker.patch("sys.argv", argv)
+    main()
+    _, err = capsys.readouterr()
+    with open("./test_printed_tree_on_output_file.log", encoding = 'utf-8') as f:
+        out = f.read()
+    assert err == ""
+    assert out.strip() == dedent(
+        """\
+         name              extras_available   extras_requested
+        ───────────────────────────────────────────────────────
+         thing[xyz]        abc, xyz           xyz
+         └── spam>0.30.0
+        """
+    ).strip()
+
+
 def test_diamond_deptree(mocker, capsys, make_dist):
     make_dist(name="distA", install_requires=["distB1", "distB2"], version="0.1")
     make_dist(name="distB1", install_requires=["distC[x,z]<0.3"], version="0.1")
@@ -126,7 +147,9 @@ def test_requirements_txt_output(mocker, capsys, make_dist):
 
 def test_all_fields_toml_out(mocker, capsys, make_dist, tmp_path):
     dist_path = make_dist(name="example", version="0.3", py_modules=["that"])
-    checksum = hashlib.sha256(dist_path.read_bytes()).hexdigest()
+    sha256_checksum = hashlib.sha256(dist_path.read_bytes()).hexdigest()
+    sha1_checksum = hashlib.sha1(dist_path.read_bytes()).hexdigest()
+    md5_checksum = hashlib.md5(dist_path.read_bytes()).hexdigest()
     mocker.patch("sys.argv", "johnnydep example<0.4 --fields=ALL --output-format=toml".split())
     main()
     out, err = capsys.readouterr()
@@ -153,7 +176,7 @@ def test_all_fields_toml_out(mocker, capsys, make_dist, tmp_path):
         version_latest = "0.3"
         version_latest_in_spec = "0.3"
         download_link = "{tmp_path.as_uri()}/example-0.3-py2.py3-none-any.whl"
-        checksum = "sha256={checksum}"
+        checksum = "sha256={sha256_checksum},sha1={sha1_checksum},md5={md5_checksum}"
 
         '''
     )
