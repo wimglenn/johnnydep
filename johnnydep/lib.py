@@ -47,6 +47,20 @@ __all__ = ["JohnnyDist", "gen_table", "gen_tree", "flatten_deps", "has_error", "
 logger = get_logger(__name__)
 
 
+def _format_size(size_bytes):
+    """Format size in bytes to human-readable format."""
+    if size_bytes is None:
+        return ""
+    
+    for unit in ['B', 'KB', 'MB', 'GB']:
+        if size_bytes < 1024.0:
+            if unit == 'B':
+                return f"{size_bytes:.0f} {unit}"
+            return f"{size_bytes:.1f} {unit}"
+        size_bytes /= 1024.0
+    return f"{size_bytes:.1f} TB"
+
+
 class JohnnyError(Exception):
     pass
 
@@ -71,6 +85,8 @@ class JohnnyDist:
         self.import_names = None
         self.metadata = {}
         self.entry_points = None
+        self.size = None
+        self.installed_size = None
         self._index_urls = index_urls
         self._env = env
 
@@ -86,7 +102,12 @@ class JohnnyDist:
             self.metadata = _extract_metadata(fname)
             self.entry_points = _discover_entry_points(fname)
             self._local_path = Path(fname).resolve()
-            self.checksum = "sha256=" + hashlib.sha256(self._local_path.read_bytes()).hexdigest()
+            file_bytes = self._local_path.read_bytes()
+            self.checksum = "sha256=" + hashlib.sha256(file_bytes).hexdigest()
+            self.size = len(file_bytes)
+            # Calculate installed size for local wheel
+            with ZipFile(self._local_path, 'r') as zf:
+                self.installed_size = sum(info.file_size for info in zf.infolist())
         else:
             self._local_path = None
             self.req = Requirement(req_string)
@@ -104,6 +125,8 @@ class JohnnyDist:
                 self.metadata = info.metadata
                 self.entry_points = info.entry_points
                 self.checksum = "sha256=" + info.sha256
+                self.size = info.size
+                self.installed_size = info.installed_size
 
         self.extras_requested = sorted(self.req.extras)
         if parent is None:
@@ -178,6 +201,82 @@ class JohnnyDist:
         text = self.metadata.get("summary") or ""
         result = text.lstrip("#").strip()
         return result
+    
+    @property
+    def tree_size(self):
+        """Calculate the cumulative size of this package and all its dependencies."""
+        if self.size is None:
+            return None
+        
+        total_size = self.size
+        seen = {self.name}
+        
+        def calculate_branch_size(dist):
+            size = 0
+            for child in dist.children:
+                if isinstance(child, CircularMarker):
+                    continue
+                if child.name not in seen:
+                    seen.add(child.name)
+                    if child.size is not None:
+                        size += child.size
+                        size += calculate_branch_size(child)
+            return size
+        
+        total_size += calculate_branch_size(self)
+        return total_size
+    
+    @property
+    def formatted_size(self):
+        """Format size in human-readable format."""
+        if self.size is None:
+            return ""
+        return _format_size(self.size)
+    
+    @property
+    def formatted_tree_size(self):
+        """Format tree size in human-readable format."""
+        if self.tree_size is None:
+            return ""
+        return _format_size(self.tree_size)
+    
+    @property
+    def installed_tree_size(self):
+        """Calculate the cumulative installed size of this package and all its dependencies."""
+        if self.installed_size is None:
+            return None
+        
+        total_size = self.installed_size
+        seen = {self.name}
+        
+        def calculate_branch_size(dist):
+            size = 0
+            for child in dist.children:
+                if isinstance(child, CircularMarker):
+                    continue
+                if child.name not in seen:
+                    seen.add(child.name)
+                    if child.installed_size is not None:
+                        size += child.installed_size
+                        size += calculate_branch_size(child)
+            return size
+        
+        total_size += calculate_branch_size(self)
+        return total_size
+    
+    @property
+    def formatted_installed_size(self):
+        """Format installed size in human-readable format."""
+        if self.installed_size is None:
+            return ""
+        return _format_size(self.installed_size)
+    
+    @property
+    def formatted_installed_tree_size(self):
+        """Format installed tree size in human-readable format."""
+        if self.installed_tree_size is None:
+            return ""
+        return _format_size(self.installed_tree_size)
 
     @property
     def license(self):
@@ -188,7 +287,7 @@ class JohnnyDist:
         self.log.debug("metadata license is not set, checking trove classifiers")
         for classifier in self.metadata.get("classifier", []):
             if classifier.startswith("License :: "):
-                crap, result = classifier.rsplit(" :: ", 1)
+                _, result = classifier.rsplit(" :: ", 1)
                 break
         if not result:
             self.log.info("unknown license")
@@ -606,6 +705,8 @@ class _Info:
     metadata: dict
     entry_points: list
     sha256: str
+    size: int
+    installed_size: int
 
 
 @lru_cache_ttl()
@@ -620,13 +721,26 @@ def _get_info(req: Requirement, index_urls: tuple, env: tuple):
         dist_path = Path(tmpdir) / link.filename
         with dist_path.open("wb") as f:
             download_dist(url=link.url, f=f, index_urls=index_urls)
-        sha256 = hashlib.sha256(dist_path.read_bytes()).hexdigest()
+        file_content = dist_path.read_bytes()
+        sha256 = hashlib.sha256(file_content).hexdigest()
+        file_size = len(file_content)
+        
+        # Calculate installed (uncompressed) size
+        if dist_path.name.endswith("whl"):
+            with ZipFile(dist_path, 'r') as zf:
+                installed_size = sum(info.file_size for info in zf.infolist())
+        else:
+            # For source distributions, we'll calculate after building the wheel
+            installed_size = 0
         if link.hashes is not None and link.hashes.get("sha256", sha256) != sha256:
             raise JohnnyError("checksum mismatch")
         if not dist_path.name.endswith("whl"):
             args = [sys.executable, "-m", "uv", "build", "--wheel", str(dist_path)]
             subprocess.run(args, capture_output=True, check=True)
             [dist_path] = dist_path.parent.glob("*.whl")
+            # Recalculate installed size for the built wheel
+            with ZipFile(dist_path, 'r') as zf:
+                installed_size = sum(info.file_size for info in zf.infolist())
         # extract any info we may need from downloaded dist right now, so the
         # downloaded file can be cleaned up immediately
         import_names = _discover_import_names(dist_path)
@@ -635,5 +749,5 @@ def _get_info(req: Requirement, index_urls: tuple, env: tuple):
     finally:
         log.debug("removing scratch", tmpdir=tmpdir)
         rmtree(tmpdir, ignore_errors=True)
-    result = _Info(import_names, metadata, entry_points, sha256)
+    result = _Info(import_names, metadata, entry_points, sha256, file_size, installed_size)
     return result

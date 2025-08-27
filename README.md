@@ -35,6 +35,26 @@ A more complex tree:
             └── python-dateutil<3.0.0,>=2.1  Extensions to the standard Python datetime module
                 └── six>=1.5                 Python 2 and 3 compatibility utilities
 
+You can also view the download size and installed size of dependencies:
+
+    $ johnnydep boto3 --fields name formatted_size formatted_installed_size
+
+    name                                     formatted_size   formatted_installed_size
+    ---------------------------------------------------------------------------------------
+    boto3                                    136.8 KB         969.2 KB
+    ├── botocore<1.41.0,>=1.40.18            13.4 MB          17.5 MB
+    │   ├── jmespath<2.0.0,>=0.7.1           19.8 KB          68.0 KB
+    │   ├── python-dateutil<3.0.0,>=2.1      224.5 KB         431.2 KB
+    │   │   └── six>=1.5                     10.8 KB          37.1 KB
+    │   └── urllib3!=2.2.0,<3,>=1.25.4       126.8 KB         414.9 KB
+    ├── jmespath<2.0.0,>=0.7.1               19.8 KB          68.0 KB
+    └── s3transfer<0.14.0,>=0.13.0           83.3 KB          309.4 KB
+        └── botocore<2.0a.0,>=1.37.4         13.4 MB          17.5 MB
+            ├── jmespath<2.0.0,>=0.7.1       19.8 KB          68.0 KB
+            ├── python-dateutil<3.0.0,>=2.1  224.5 KB         431.2 KB
+            │   └── six>=1.5                 10.8 KB          37.1 KB
+            └── urllib3!=2.2.0,<3,>=1.25.4   126.8 KB         414.9 KB
+
 Johnnydep can also attempt to resolve the dependency tree:
 
     $ johnnydep ipython --output-format pinned
