@@ -492,7 +492,12 @@ def gen_table(tree, cols):
             if d is None:
                 data[i] = ""
             elif not isinstance(d, str):
-                data[i] = ", ".join(map(str, d))
+                # Handle both iterables and single values (like integers)
+                try:
+                    data[i] = ", ".join(map(str, d))
+                except TypeError:
+                    # If d is not iterable (e.g., an integer), convert it to string
+                    data[i] = str(d)
         escaped = [rich.markup.escape(x) for x in [row0, *data]]
         table.add_row(*escaped)
     return table

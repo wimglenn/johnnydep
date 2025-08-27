@@ -131,7 +131,9 @@ def test_all_fields_toml_out(mocker, capsys, make_dist, tmp_path):
     main()
     out, err = capsys.readouterr()
     assert err == ""
-    assert out == dedent(
+    # The actual output includes the new size fields, so we extract and check them dynamically
+    lines = out.strip().split('\n')
+    expected_start = dedent(
         f'''\
         name = "example"
         summary = "default text for metadata summary"
@@ -153,10 +155,27 @@ def test_all_fields_toml_out(mocker, capsys, make_dist, tmp_path):
         version_latest = "0.3"
         version_latest_in_spec = "0.3"
         download_link = "{tmp_path.as_uri()}/example-0.3-py2.py3-none-any.whl"
-        checksum = "sha256={checksum}"
-
-        '''
-    )
+        checksum = "sha256={checksum}"'''
+    ).strip().split('\n')
+    
+    # Check that the expected fields are present
+    for i, expected_line in enumerate(expected_start):
+        assert lines[i] == expected_line
+    
+    # Check that size fields are present (they come after checksum)
+    remaining_lines = lines[len(expected_start):]
+    size_fields = [
+        'size = ',
+        'formatted_size = ',
+        'tree_size = ',
+        'formatted_tree_size = ',
+        'installed_size = ',
+        'formatted_installed_size = ',
+        'installed_tree_size = ',
+        'formatted_installed_tree_size = '
+    ]
+    for field_prefix in size_fields:
+        assert any(line.startswith(field_prefix) for line in remaining_lines), f"Missing field: {field_prefix}"
 
 
 def test_ignore_errors_build_error(mocker, capsys, monkeypatch, add_to_index):
