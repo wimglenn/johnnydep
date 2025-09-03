@@ -62,7 +62,7 @@ def test_build_from_sdist(add_to_index):
     assert dist.project_name == "copyingmock"
     assert dist.download_link.startswith("file://")
     assert dist.download_link.endswith("copyingmock-0.2.tar.gz")
-    assert dist.checksum == "sha256=fa4c8aad336f6e74f7632f40ff5a271130be5def44ab3177af4578c4d4a66093"
+    assert dist.checksum[:71] == "sha256=fa4c8aad336f6e74f7632f40ff5a271130be5def44ab3177af4578c4d4a66093"
 
 
 def test_plaintext_whl_metadata(add_to_index):
@@ -96,7 +96,7 @@ def test_old_metadata_20(add_to_index):
         "version": "0.1.2",
     }
     assert jdist.metadata == expected_metadata
-    assert jdist.checksum == "sha256=bdcb144db3ba4beebbf5f8b249302560e8894bce6c3688dc79f587d6272ecea4"
+    assert jdist.checksum == "sha256=bdcb144db3ba4beebbf5f8b249302560e8894bce6c3688dc79f587d6272ecea4,sha1=7c64e8387cfae12e256f8e906755805ef21e7452,md5=488652bac3e1705e5646ea6a51f4d441"
 
 
 def test_cant_pin(make_dist, mocker):

@@ -86,7 +86,8 @@ class JohnnyDist:
             self.metadata = _extract_metadata(fname)
             self.entry_points = _discover_entry_points(fname)
             self._local_path = Path(fname).resolve()
-            self.checksum = "sha256=" + hashlib.sha256(self._local_path.read_bytes()).hexdigest()
+            local_path_bytes = self._local_path.read_bytes()
+            self.checksum = "sha256=" + hashlib.sha256( local_path_bytes ).hexdigest() + ",sha1=" + hashlib.sha1( local_path_bytes ).hexdigest() + ",md5=" + hashlib.md5( local_path_bytes ).hexdigest()
         else:
             self._local_path = None
             self.req = Requirement(req_string)
@@ -103,7 +104,7 @@ class JohnnyDist:
                 self.import_names = info.import_names
                 self.metadata = info.metadata
                 self.entry_points = info.entry_points
-                self.checksum = "sha256=" + info.sha256
+                self.checksum = "sha256=" + info.sha256 + ",sha1=" + info.sha1 + ",md5=" + info.md5
 
         self.extras_requested = sorted(self.req.extras)
         if parent is None:
@@ -292,7 +293,7 @@ class JohnnyDist:
                 tree.dist = self
             table = gen_table(tree, cols=cols)
             buf = io.StringIO()
-            with patch.dict("os.environ", COLUMNS="1000"):
+            with patch.dict("os.environ", COLUMNS="100000"):
                 rich.print(table, file=buf)
             raw = buf.getvalue()
             stripped = "\n".join([x.rstrip() for x in raw.splitlines() if x.strip()])
@@ -606,6 +607,8 @@ class _Info:
     metadata: dict
     entry_points: list
     sha256: str
+    sha1: str
+    md5: str
 
 
 @lru_cache_ttl()
@@ -620,7 +623,10 @@ def _get_info(req: Requirement, index_urls: tuple, env: tuple):
         dist_path = Path(tmpdir) / link.filename
         with dist_path.open("wb") as f:
             download_dist(url=link.url, f=f, index_urls=index_urls)
-        sha256 = hashlib.sha256(dist_path.read_bytes()).hexdigest()
+        dist_path_bytes = dist_path.read_bytes()
+        sha1 = hashlib.sha1( dist_path_bytes ).hexdigest()
+        md5 = hashlib.md5( dist_path_bytes ).hexdigest()
+        sha256 = hashlib.sha256( dist_path_bytes ).hexdigest()
         if link.hashes is not None and link.hashes.get("sha256", sha256) != sha256:
             raise JohnnyError("checksum mismatch")
         if not dist_path.name.endswith("whl"):
@@ -635,5 +641,5 @@ def _get_info(req: Requirement, index_urls: tuple, env: tuple):
     finally:
         log.debug("removing scratch", tmpdir=tmpdir)
         rmtree(tmpdir, ignore_errors=True)
-    result = _Info(import_names, metadata, entry_points, sha256)
+    result = _Info(import_names, metadata, entry_points, sha256, sha1, md5)
     return result
