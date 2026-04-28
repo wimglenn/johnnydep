@@ -230,9 +230,10 @@ class JohnnyDist:
     def version_latest_in_spec(self):
         avail = list(reversed(self.versions_available))
         for v in avail:
-            if v in self.req.specifier:
+            if v in self.req.specifier and Version(v).pre is None:
                 return v
         # allow to get a pre-release if that's all the index has for us
+        # see https://peps.python.org/pep-0440/#handling-of-pre-releases
         for v in avail:
             if self.req.specifier.contains(v, prereleases=True):
                 return v
