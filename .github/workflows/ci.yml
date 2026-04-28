@@ -23,6 +23,7 @@ jobs:
         - "3.11"
         - "3.12"
         - "3.13"
+        - "3.14"
 
     steps:
       - uses: actions/checkout@v6
@@ -36,4 +37,4 @@ jobs:
         run: pytest
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
