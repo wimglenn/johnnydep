@@ -10,13 +10,10 @@ from subprocess import CalledProcessError
 from subprocess import check_output
 from time import monotonic
 
-import structlog
 import unearth
+from loguru import logger
 
 from . import env_check
-
-
-log = structlog.get_logger()
 
 
 def python_interpreter(path):
@@ -63,7 +60,7 @@ class CircularMarker:
         self.summary = summary
         self.parents = [parent]
         self.children = []
-        self.log = structlog.get_logger()
+        self.log = logger
 
     def __getattr__(self, name):
         if name.startswith("_"):

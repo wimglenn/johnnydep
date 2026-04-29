@@ -3,10 +3,7 @@ from urllib.request import build_opener
 from urllib.request import HTTPBasicAuthHandler
 from urllib.request import HTTPPasswordMgrWithDefaultRealm
 
-from structlog import get_logger
-
-
-log = get_logger(__name__)
+from loguru import logger as log
 
 
 def _urlretrieve(url, f, data=None, auth=None):

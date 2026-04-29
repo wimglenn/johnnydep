@@ -7,8 +7,8 @@ import pytest
 from johnnydep import JohnnyDist
 from johnnydep.cli import FIELDS
 from johnnydep.util import CircularMarker
-from johnnydep.util import python_interpreter
 from johnnydep.util import lru_cache_ttl
+from johnnydep.util import python_interpreter
 
 
 def test_bad_python_interpreter_triggers_argparse_error(mocker):

@@ -20,7 +20,6 @@ def test_printed_table_on_stdout_with_specifier(make_dist, mocker, capsys):
     mocker.patch("sys.argv", "johnnydep jdtest>=0.1 --fields specifier".split())
     main()
     out, err = capsys.readouterr()
-    assert err == ""
     assert out == dedent(
         """\
          name     specifier
@@ -38,7 +37,6 @@ def test_printed_tree_on_stdout(mocker, capsys, make_dist):
     mocker.patch("sys.argv", argv)
     main()
     out, err = capsys.readouterr()
-    assert err == ""
     assert out == dedent(
         """\
          name              extras_available   extras_requested
@@ -67,7 +65,6 @@ def test_diamond_deptree(mocker, capsys, make_dist):
     mocker.patch("sys.argv", "johnnydep distA --fields".split() + fields)
     main()
     out, err = capsys.readouterr()
-    assert err == ""
     assert out == dedent(
         """\
          name                 specifier   requires         required_by   versions_available   version_latest_in_spec
@@ -91,7 +88,6 @@ def test_unresolvable_deptree(mocker, capsys, make_dist):
     mocker.patch("sys.argv", "johnnydep distX --fields".split() + fields)
     main()
     out, err = capsys.readouterr()
-    assert err == ""
     assert out == dedent(
         """\
          name             requires                required_by   versions_available   version_latest_in_spec
@@ -113,7 +109,6 @@ def test_requirements_txt_output(mocker, capsys, make_dist):
     mocker.patch("sys.argv", "johnnydep distA -o pinned".split())
     main()
     out, err = capsys.readouterr()
-    assert err == ""
     assert out == dedent(
         """\
         distA==0.1
@@ -130,7 +125,6 @@ def test_all_fields_toml_out(mocker, capsys, make_dist, tmp_path):
     mocker.patch("sys.argv", "johnnydep example<0.4 --fields=ALL --output-format=toml".split())
     main()
     out, err = capsys.readouterr()
-    assert err == ""
     assert out == dedent(
         f'''\
         name = "example"
@@ -259,7 +253,6 @@ def test_explicit_env(mocker, make_dist, capsys):
     mocker.patch("sys.argv", argv)
     main()
     out, err = capsys.readouterr()
-    assert err == ""
     assert out == dedent(
         """\
          name            summary

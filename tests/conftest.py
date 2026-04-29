@@ -20,11 +20,6 @@ def expire_caches():
     lib._get_info.cache_clear()
 
 
-@pytest.fixture(autouse=True)
-def disable_logconfig(mocker):
-    mocker.patch("johnnydep.logs.logging.config.dictConfig")
-
-
 @pytest.fixture(autouse=True, scope="session")
 def freeze_version():
     def fake_version(name):

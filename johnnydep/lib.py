@@ -25,6 +25,7 @@ import rich.markup
 import tomli_w
 import unearth
 import yaml
+from loguru import logger
 from packaging.markers import default_environment
 from packaging.requirements import Requirement
 from packaging.tags import parse_tag
@@ -33,7 +34,6 @@ from packaging.utils import canonicalize_version
 from packaging.version import Version
 from rich.table import Table
 from rich.tree import Tree
-from structlog import get_logger
 
 from .dot import jd2dot
 from .downloader import download_dist
@@ -43,8 +43,6 @@ from .util import CircularMarker
 from .util import lru_cache_ttl
 
 __all__ = ["JohnnyDist", "gen_table", "gen_tree", "flatten_deps", "has_error", "JohnnyError"]
-
-logger = get_logger(__name__)
 
 
 class JohnnyError(Exception):
