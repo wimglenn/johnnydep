@@ -15,7 +15,6 @@ dependencies = [
     "tomli-w",
     "unearth",
     "uv",
-    "wheel >= 0.32.0",
 ]
 
 [[project.authors]]
