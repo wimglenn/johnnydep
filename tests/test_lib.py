@@ -442,9 +442,14 @@ def test_extras_parsing(make_dist):
     assert JohnnyDist("parent[baz,foo]").requires == ["child"]
 
 
-def test_license_parsing_metadaa(make_dist):
+def test_license_parsing_metadata(make_dist):
     make_dist(license="The License")
     assert JohnnyDist("jdtest").license == "The License"
+
+
+def test_license_parsing_metadata_license_expression_precedence(make_dist):
+    make_dist(license_expression="MIT1", license="MIT2")
+    assert JohnnyDist("jdtest").license == "MIT1"
 
 
 def test_license_parsing_classifiers(make_dist):
