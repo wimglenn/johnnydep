@@ -181,7 +181,8 @@ class JohnnyDist:
 
     @property
     def license(self):
-        result = self.metadata.get("license") or ""
+        # https://peps.python.org/pep-0639/#add-license-expression-field
+        result = self.metadata.get("license_expression") or self.metadata.get("license") or ""
         # sometimes people just put the license in a trove classifier instead
         # for a list of valid classifiers:
         #   requests.get('https://pypi.python.org/pypi', params={':action': 'list_classifiers'}).text.splitlines()
