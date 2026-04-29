@@ -3,7 +3,7 @@ name = "johnnydep"
 version = "2.0.0"
 description = "Display dependency tree of Python distribution"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 license = "MIT"
 dependencies = [
     "colorama ; platform_system == 'Windows'",

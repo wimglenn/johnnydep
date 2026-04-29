@@ -344,11 +344,7 @@ def _to_str(dist, with_specifier=True):
     if dist.error:
         txt += " (FAILED)"
     if not with_specifier:
-        # can use https://docs.python.org/3/library/stdtypes.html#str.removesuffix
-        # after dropping support for Python-3.8
-        suffix = str(dist.specifier)
-        if txt.endswith(suffix):
-            txt = txt[:len(txt) - len(suffix)]
+        txt = txt.removesuffix(str(dist.specifier))
     return rich.markup.escape(txt)
 
 
