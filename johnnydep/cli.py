@@ -2,6 +2,7 @@ import os
 import sys
 from argparse import ArgumentParser
 from importlib.metadata import version
+from pathlib import Path
 
 import johnnydep
 from .lib import has_error
@@ -116,6 +117,11 @@ def main(argv=None, stdout=None):
         action="version",
         version=f"%(prog)s v" + version("johnnydep"),
     )
+    parser.add_argument(
+        "--output-file",
+        "-O",
+        default=None
+    )
     args = parser.parse_args(argv)
     if "ALL" in args.fields:
         args.fields = list(FIELDS)
@@ -140,5 +146,10 @@ def main(argv=None, stdout=None):
         recurse=args.recurse,
     )
     print(rendered, file=stdout)
+    if args.output_file:
+        output_path=Path(args.output_file)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(args.output_file, 'w', encoding='utf-8') as f:
+            f.write(rendered)
     if (args.recurse and has_error(dist)) or (not args.recurse and dist.error is not None):
         sys.exit(1)
