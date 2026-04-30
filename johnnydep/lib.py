@@ -620,6 +620,7 @@ def _get_info(req: Requirement, index_urls: tuple, env: tuple):
         if link.hashes is not None and link.hashes.get("sha256", sha256) != sha256:
             raise JohnnyError("checksum mismatch")
         if not dist_path.name.endswith("whl"):
+            log.debug("converting sdist to wheel", dist_path=dist_path)
             args = [sys.executable, "-m", "uv", "build", "--wheel", str(dist_path)]
             subprocess.run(args, capture_output=True, check=True)
             [dist_path] = dist_path.parent.glob("*.whl")

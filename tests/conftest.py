@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 import tempfile
@@ -6,6 +7,7 @@ from pathlib import Path
 
 import pytest
 import whl
+from loguru import logger
 from unearth import PackageFinder
 from wimpy import working_directory
 
@@ -18,6 +20,17 @@ from johnnydep import lib
 def expire_caches():
     lib._get_packages.cache_clear()
     lib._get_info.cache_clear()
+
+
+@pytest.fixture(autouse=True, scope="session")
+def nerf_loguru():
+    # point loguru into stdlib (so pytest caplog fixture functions as expected)
+    class PropagateHandler(logging.Handler):
+        def emit(self, record):
+            logging.getLogger(record.name).handle(record)
+    logger.remove()
+    logger.add(PropagateHandler(), format="{message}")
+    yield
 
 
 @pytest.fixture(autouse=True, scope="session")

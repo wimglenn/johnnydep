@@ -3,7 +3,7 @@ from urllib.request import build_opener
 from urllib.request import HTTPBasicAuthHandler
 from urllib.request import HTTPPasswordMgrWithDefaultRealm
 
-from loguru import logger as log
+from loguru import logger
 
 
 def _urlretrieve(url, f, data=None, auth=None):
@@ -18,7 +18,7 @@ def _urlretrieve(url, f, data=None, auth=None):
         handler = HTTPBasicAuthHandler(password_mgr)
         opener = build_opener(handler)
     res = opener.open(url, data=data)
-    log.debug("resp info", url=url, headers=res.info())
+    logger.debug("resp info", url=url, headers=res.info())
     f.write(res.read())
     f.flush()
 
