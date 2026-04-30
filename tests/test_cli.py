@@ -5,6 +5,7 @@ from textwrap import dedent
 
 import pytest
 
+from johnnydep import cli
 from johnnydep.cli import main
 
 
@@ -12,6 +13,7 @@ from johnnydep.cli import main
 def monkeymod():
     with pytest.MonkeyPatch.context() as mp:
         mp.setenv("COLUMNS", "200")
+        mp.setattr(cli, "configure_logging", lambda verbosity: None)
         yield mp
 
 

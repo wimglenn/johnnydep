@@ -1,6 +1,5 @@
 import json
 import os
-import sys
 from argparse import ArgumentTypeError
 from collections import deque
 from functools import lru_cache
@@ -10,13 +9,10 @@ from subprocess import CalledProcessError
 from subprocess import check_output
 from time import monotonic
 
-import structlog
 import unearth
+from loguru import logger
 
 from . import env_check
-
-
-log = structlog.get_logger()
 
 
 def python_interpreter(path):
@@ -63,7 +59,7 @@ class CircularMarker:
         self.summary = summary
         self.parents = [parent]
         self.children = []
-        self.log = structlog.get_logger()
+        self.log = logger
 
     def __getattr__(self, name):
         if name.startswith("_"):
@@ -114,8 +110,7 @@ def lru_cache_ttl(maxsize=128, typed=False, ttl=60):
 
         wrapper.cache_clear = cached_func.cache_clear
         wrapper.cache_info = cached_func.cache_info
-        if sys.version_info >= (3, 9):
-            wrapper.cache_parameters = cached_func.cache_parameters
+        wrapper.cache_parameters = cached_func.cache_parameters
         return wrapper
 
     return decorator

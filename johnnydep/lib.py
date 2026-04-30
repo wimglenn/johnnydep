@@ -25,6 +25,7 @@ import rich.markup
 import tomli_w
 import unearth
 import yaml
+from loguru import logger
 from packaging.markers import default_environment
 from packaging.requirements import Requirement
 from packaging.tags import parse_tag
@@ -33,7 +34,6 @@ from packaging.utils import canonicalize_version
 from packaging.version import Version
 from rich.table import Table
 from rich.tree import Tree
-from structlog import get_logger
 
 from .dot import jd2dot
 from .downloader import download_dist
@@ -43,8 +43,6 @@ from .util import CircularMarker
 from .util import lru_cache_ttl
 
 __all__ = ["JohnnyDist", "gen_table", "gen_tree", "flatten_deps", "has_error", "JohnnyError"]
-
-logger = get_logger(__name__)
 
 
 class JohnnyError(Exception):
@@ -346,11 +344,7 @@ def _to_str(dist, with_specifier=True):
     if dist.error:
         txt += " (FAILED)"
     if not with_specifier:
-        # can use https://docs.python.org/3/library/stdtypes.html#str.removesuffix
-        # after dropping support for Python-3.8
-        suffix = str(dist.specifier)
-        if txt.endswith(suffix):
-            txt = txt[:len(txt) - len(suffix)]
+        txt = txt.removesuffix(str(dist.specifier))
     return rich.markup.escape(txt)
 
 
@@ -626,6 +620,7 @@ def _get_info(req: Requirement, index_urls: tuple, env: tuple):
         if link.hashes is not None and link.hashes.get("sha256", sha256) != sha256:
             raise JohnnyError("checksum mismatch")
         if not dist_path.name.endswith("whl"):
+            log.debug("converting sdist to wheel", dist_path=dist_path)
             args = [sys.executable, "-m", "uv", "build", "--wheel", str(dist_path)]
             subprocess.run(args, capture_output=True, check=True)
             [dist_path] = dist_path.parent.glob("*.whl")
