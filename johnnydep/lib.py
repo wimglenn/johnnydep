@@ -49,8 +49,7 @@ class JohnnyError(Exception):
     pass
 
 
-def get_or_create(req_string):
-    pass
+_memo = {}
 
 
 class JohnnyDist:
@@ -61,7 +60,10 @@ class JohnnyDist:
         log.info("init johnnydist", parent=parent and str(parent.req))
         self._children = None
         self.parents = []
-        if parent is not None:
+        if parent is None:
+            # root node
+            _memo.clear()
+        else:
             self.parents.append(parent)
         self._ignore_errors = ignore_errors
         self.error = None
@@ -104,10 +106,23 @@ class JohnnyDist:
                 self.checksum = "sha256=" + info.sha256
 
         self.extras_requested = sorted(self.req.extras)
-        if parent is None:
-            self.required_by = []
+        self.required_by = [str(p.req) for p in self.parents]
+
+    @classmethod
+    def get_or_create(cls, req_string, parent=None, index_urls=(), env=None, ignore_errors=False):
+        key = req_string, index_urls, env
+        try:
+            result = _memo[key]
+        except KeyError:
+            result = cls(req_string, parent, index_urls, env, ignore_errors)
+            _memo[key] = result
+            created = True
         else:
-            self.required_by = [str(parent.req)]
+            result.log.info(f"nodes cache hit", parent=parent and str(parent.req))
+            result.parents.append(parent)
+            result.required_by.append(str(parent.req))
+            created = False
+        return result, created
 
     @property
     def requires(self):
@@ -149,7 +164,7 @@ class JohnnyDist:
                 self._children = [_dep]
             else:
                 for dep in self.requires:
-                    child = JohnnyDist(
+                    child, _created = JohnnyDist.get_or_create(
                         req_string=dep,
                         parent=self,
                         index_urls=self._index_urls,
@@ -400,12 +415,14 @@ def _detect_circular(dist):
     # a chain of nodes in that case
     # TODO: fix this for full DAG
     dist0 = dist
-    chain = [dist]
-    while dist.parents:
-        [dist] = dist.parents
-        chain.append(dist)
-        if dist.name == dist0.name and dist.extras_requested == dist0.extras_requested:
-            return chain[::-1]
+    chains = [[dist]]
+    while chains:
+        chain = chains.pop()
+        node = chain[-1]
+        for parent in node.parents:
+            chains.append(chain + [parent])
+            if parent.name == dist0.name and parent.extras_requested == dist0.extras_requested:
+                return chains[-1][::-1]
 
 
 def flatten_deps(johnnydist):
@@ -451,13 +468,14 @@ def flatten_deps(johnnydist):
                 extra = f"[{','.join(sorted(extras))}]"
             else:
                 extra = ""
-            dist = JohnnyDist(
+            dist, _created = JohnnyDist.get_or_create(
                 req_string=f"{name}{extra}{spec}",
+                parent=dists[0],
                 index_urls=johnnydist._index_urls,
                 env=johnnydist._env,
                 ignore_errors=johnnydist._ignore_errors,
             )
-            # TODO: set parents
+            dist.parents += dists[1:]
             dist.required_by = required_by
             yield dist
             # TODO: check if this new version causes any new reqs!!
@@ -545,7 +563,7 @@ def _extract_metadata(whl_file):
 def has_error(dist):
     if dist.error is not None:
         return True
-    return any(has_error(n) for n in dist.children)
+    return any(d.error is not None for d in _bfs(dist))
 
 
 def _get_package_finder(index_urls, env):

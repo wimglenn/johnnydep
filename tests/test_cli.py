@@ -219,6 +219,11 @@ def test_circular_deptree(mocker, capsys, make_dist):
     mocker.patch("sys.argv", "johnnydep pkg0".split())
     main()
     out, err = capsys.readouterr()
+    sys.stdout = sys.__stdout__
+    from johnnydep.lib import JohnnyDist
+    d = JohnnyDist("pkg0")
+    d1 = d.children[0].children[0].children[0].children[0]
+    import IPython; IPython.embed()
     assert out == dedent(
         """\
          name                      summary

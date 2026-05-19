@@ -29,8 +29,7 @@ def jd2dot(dist, comment=None):
         if isinstance(node, CircularMarker):
             # todo - render cycles differently?
             continue
-        if node.parents:
-            [parent] = node.parents
+        for parent in node.parents:
             node_name = node._name_with_extras(attr="project_name")
             parent_node_name = parent._name_with_extras(attr="project_name")
             spec = node.req.specifier

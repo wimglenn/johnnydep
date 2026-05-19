@@ -60,6 +60,7 @@ class CircularMarker:
         self.parents = [parent]
         self.children = []
         self.log = logger
+        self.error = None
 
     def __getattr__(self, name):
         if name.startswith("_"):
