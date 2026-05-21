@@ -269,3 +269,31 @@ def test_explicit_env(mocker, make_dist, capsys):
          jdtest==0.1.2   default text for metadata summary
         """
     )
+
+
+def test_exclude_fields(make_dist, mocker, capsys):
+    make_dist()
+    mocker.patch("sys.argv", "johnnydep jdtest -x versions_available checksum download_link -o yaml".split())
+    main()
+    out, err = capsys.readouterr()
+    assert err == ""
+    assert out == dedent(
+        f"""\
+        - name: jdtest
+          summary: default text for metadata summary
+          specifier: ''
+          requires: []
+          required_by: []
+          import_names: []
+          console_scripts: []
+          homepage: https://www.example.org/default
+          extras_available: []
+          extras_requested: []
+          project_name: jdtest
+          license: MIT
+          version_installed: null
+          version_latest: 0.1.2
+          version_latest_in_spec: 0.1.2
+
+        """
+    )
