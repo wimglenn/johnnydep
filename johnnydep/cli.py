@@ -88,7 +88,7 @@ def main(argv=None, stdout=None):
         choices=list(FIELDS) + ["ALL"],
         help=(
             "Space separated list of fields to print "
-            "(default: {' '.join(default_fields)})."
+            f"(default: {' '.join(default_fields)})."
         ),
     )
     parser.add_argument(
