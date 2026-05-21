@@ -80,16 +80,24 @@ def main(argv=None, stdout=None):
         dest="recurse",
         action="store_false",
     )
-    parser.add_argument(
+    fields_group = parser.add_mutually_exclusive_group()
+    fields_group.add_argument(
         "--fields",
         "-f",
-        nargs="*",
+        nargs="+",
         default=default_fields,
         choices=list(FIELDS) + ["ALL"],
         help=(
             "Space separated list of fields to print "
             f"(default: {' '.join(default_fields)})."
         ),
+    )
+    fields_group.add_argument(
+        "--exclude-fields",
+        "-x",
+        nargs="+",
+        choices=list(FIELDS),
+        help="Space separated list of fields to exclude from printing",
     )
     parser.add_argument(
         "--for-python",
@@ -117,8 +125,11 @@ def main(argv=None, stdout=None):
         version=f"%(prog)s v" + version("johnnydep"),
     )
     args = parser.parse_args(argv)
-    if "ALL" in args.fields:
-        args.fields = list(FIELDS)
+    fields = args.fields
+    if "ALL" in fields:
+        fields = list(FIELDS)
+    if args.exclude_fields:
+        fields = [x for x in FIELDS if x not in args.exclude_fields]
     configure_logging(verbosity=args.verbose)
     if args.extra_index_url and not args.index_url:
         index_urls = ("https://pypi.org/simple", args.extra_index_url)
@@ -135,7 +146,7 @@ def main(argv=None, stdout=None):
         ignore_errors=args.ignore_errors,
     )
     rendered = dist.serialise(
-        fields=args.fields,
+        fields=fields,
         format=args.output_format,
         recurse=args.recurse,
     )
