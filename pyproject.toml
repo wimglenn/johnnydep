@@ -30,6 +30,7 @@ johnnydep = "johnnydep.cli:main"
 
 [tool.pytest.ini_options]
 testpaths = "tests"
+assertion_text_diff_style = "block"
 addopts = [
     "-ra",
     "--cov=johnnydep",

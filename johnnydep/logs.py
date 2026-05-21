@@ -7,7 +7,7 @@ from loguru import logger
 
 
 def formatter(record):
-    escaped = [(k, re.sub("(<.*?>)", r"\\\1", str(v))) for k, v in record["extra"].items()]
+    escaped = [(k, re.sub("(<[^<]*?>)", r"\\\1", str(v))) for k, v in record["extra"].items()]
     kv = [f"<c>{k}</>=<m>{v}</>" for k, v in escaped]
     kv = " ".join(kv)
     context = f" {kv}" if kv else ""

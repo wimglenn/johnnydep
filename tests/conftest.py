@@ -1,6 +1,5 @@
 import logging
 import os
-import shutil
 import tempfile
 from importlib.metadata import version
 from pathlib import Path
@@ -29,7 +28,7 @@ def nerf_loguru():
         def emit(self, record):
             logging.getLogger(record.name).handle(record)
     logger.remove()
-    logger.add(PropagateHandler(), format="{message}")
+    logger.add(PropagateHandler(), format="{message} {extra}")
     yield
 
 
@@ -150,21 +149,3 @@ def make_dist(tmp_path, add_to_index):
         return make_wheel(**kwargs)
 
     return f
-
-
-def pytest_assertrepr_compare(config, op, left, right):
-    # https://docs.pytest.org/en/latest/reference/reference.html#pytest.hookspec.pytest_assertrepr_compare
-    if isinstance(left, str) and isinstance(right, str) and op == "==":
-        left_lines = left.splitlines()
-        right_lines = right.splitlines()
-        if len(left_lines) > 1 or len(right_lines) > 1:
-            width, _ = shutil.get_terminal_size(fallback=(80, 24))
-            width = max(width, 40) - 10
-            lines = [
-                "When comparing multiline strings:",
-                f" LEFT ({len(left)}) ".center(width, "="),
-                *left_lines,
-                f" RIGHT ({len(right)}) ".center(width, "="),
-                *right_lines,
-            ]
-            return lines

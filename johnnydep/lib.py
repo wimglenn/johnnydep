@@ -49,8 +49,7 @@ class JohnnyError(Exception):
     pass
 
 
-def get_or_create(req_string):
-    pass
+_memo = {}
 
 
 class JohnnyDist:
@@ -61,7 +60,10 @@ class JohnnyDist:
         log.info("init johnnydist", parent=parent and str(parent.req))
         self._children = None
         self.parents = []
-        if parent is not None:
+        if parent is None:
+            # root node
+            _memo.clear()
+        else:
             self.parents.append(parent)
         self._ignore_errors = ignore_errors
         self.error = None
@@ -104,10 +106,22 @@ class JohnnyDist:
                 self.checksum = "sha256=" + info.sha256
 
         self.extras_requested = sorted(self.req.extras)
-        if parent is None:
-            self.required_by = []
+        self.required_by = [str(p.req) for p in self.parents]
+        _memo[req_string, index_urls, env] = self
+
+    @classmethod
+    def get_or_create(cls, req_string, parent=None, index_urls=(), env=None, ignore_errors=False):
+        key = req_string, index_urls, env
+        if key in _memo:
+            result = _memo[key]
+            result.log.info(f"nodes cache hit", parent=parent and str(parent.req))
+            result.parents.append(parent)
+            result.required_by.append(str(parent.req))
+            created = False
         else:
-            self.required_by = [str(parent.req)]
+            _memo[key] = result = cls(req_string, parent, index_urls, env, ignore_errors)
+            created = True
+        return result, created
 
     @property
     def requires(self):
@@ -140,23 +154,15 @@ class JohnnyDist:
         if self._children is None:
             self._children = []
             self.log.debug("populating dep graph")
-            circular_deps = _detect_circular(self)
-            if circular_deps:
-                chain = " -> ".join([d._name_with_extras() for d in circular_deps])
-                summary = f"... <circular dependency marker for {chain}>"
-                self.log.info("pruning circular dependency", chain=chain)
-                _dep = CircularMarker(summary=summary, parent=self)
-                self._children = [_dep]
-            else:
-                for dep in self.requires:
-                    child = JohnnyDist(
-                        req_string=dep,
-                        parent=self,
-                        index_urls=self._index_urls,
-                        env=self._env,
-                        ignore_errors=self._ignore_errors,
-                    )
-                    self._children.append(child)
+            for dep in self.requires:
+                child, _created = JohnnyDist.get_or_create(
+                    req_string=dep,
+                    parent=self,
+                    index_urls=self._index_urls,
+                    env=self._env,
+                    ignore_errors=self._ignore_errors,
+                )
+                self._children.append(child)
         return self._children
 
     @property
@@ -289,7 +295,7 @@ class JohnnyDist:
                 tree = gen_tree(self, with_specifier=with_specifier)
             else:
                 tree = Tree(_to_str(self, with_specifier))
-                tree.dist = self
+                tree.path = {self: 0}
             table = gen_table(tree, cols=cols)
             buf = io.StringIO()
             with patch.dict("os.environ", COLUMNS="1000"):
@@ -350,21 +356,29 @@ def _to_str(dist, with_specifier=True):
 
 def gen_tree(johnnydist, with_specifier=True):
     johnnydist.log.debug("generating tree")
-    seen = set()
     tree = Tree(_to_str(johnnydist, with_specifier))
-    tree.dist = johnnydist
+    tree.path = {johnnydist: 0}
     q = deque([tree])
     while q:
         node = q.popleft()
-        jd = node.dist
-        pk = id(jd)
-        if pk in seen:
+        path = node.path
+        # get last item but leave it in the dict
+        jd, depth = _, path[jd] = path.popitem()
+        cycle = getattr(node, "_cycle", None)
+        if cycle:
+            chain = " -> ".join([d._name_with_extras() for d in cycle])
+            summary = f"... <circular dependency marker for {chain}>"
+            marker = CircularMarker(summary=summary, parent=jd)
+            marker_node = node.add(_to_str(marker))
+            marker_node.path = {**path, marker: depth + 1}
             continue
-        seen.add(pk)
-        for child in jd.children:
-            tchild = node.add(_to_str(child, with_specifier))
-            tchild.dist = child
-            q.append(tchild)
+        for child_dist in jd.children:
+            child_node = node.add(_to_str(child_dist, with_specifier))
+            if child_dist in path:
+                i = path[child_dist]
+                child_node._cycle = list(path)[i:] + [child_dist]
+            child_node.path = {**path, child_dist: depth + 1}
+            q.append(child_node)
     return tree
 
 
@@ -384,7 +398,8 @@ def gen_table(tree, cols):
         rich.print(tree, file=buf)
     tree_lines = buf.getvalue().splitlines()
     for row0, row in zip(tree_lines, rows):
-        data = [getattr(row.dist, c) for c in cols]
+        dist, depth = _, row.path[dist] = row.path.popitem()
+        data = [getattr(dist, c) for c in cols]
         for i, d in enumerate(data):
             if d is None:
                 data[i] = ""
@@ -395,19 +410,6 @@ def gen_table(tree, cols):
     return table
 
 
-def _detect_circular(dist):
-    # detects a circular dependency when traversing from here to the root node, and returns
-    # a chain of nodes in that case
-    # TODO: fix this for full DAG
-    dist0 = dist
-    chain = [dist]
-    while dist.parents:
-        [dist] = dist.parents
-        chain.append(dist)
-        if dist.name == dist0.name and dist.extras_requested == dist0.extras_requested:
-            return chain[::-1]
-
-
 def flatten_deps(johnnydist):
     johnnydist.log.debug("resolving dep graph")
     dist_map = defaultdict(list)
@@ -415,8 +417,6 @@ def flatten_deps(johnnydist):
     extra_map = defaultdict(set)
     required_by_map = defaultdict(list)
     for dep in _bfs(johnnydist):
-        if dep.name == CircularMarker.glyph:
-            continue
         dist_map[dep.name].append(dep)
         spec_map[dep.name] = dep.req.specifier & spec_map[dep.name]
         extra_map[dep.name] |= set(dep.extras_requested)
@@ -451,13 +451,14 @@ def flatten_deps(johnnydist):
                 extra = f"[{','.join(sorted(extras))}]"
             else:
                 extra = ""
-            dist = JohnnyDist(
+            dist, _created = JohnnyDist.get_or_create(
                 req_string=f"{name}{extra}{spec}",
+                parent=dists[0],
                 index_urls=johnnydist._index_urls,
                 env=johnnydist._env,
                 ignore_errors=johnnydist._ignore_errors,
             )
-            # TODO: set parents
+            dist.parents += dists[1:]
             dist.required_by = required_by
             yield dist
             # TODO: check if this new version causes any new reqs!!
@@ -545,7 +546,7 @@ def _extract_metadata(whl_file):
 def has_error(dist):
     if dist.error is not None:
         return True
-    return any(has_error(n) for n in dist.children)
+    return any(d.error is not None for d in _bfs(dist))
 
 
 def _get_package_finder(index_urls, env):

@@ -60,6 +60,7 @@ class CircularMarker:
         self.parents = [parent]
         self.children = []
         self.log = logger
+        self.error = None
 
     def __getattr__(self, name):
         if name.startswith("_"):
@@ -71,10 +72,10 @@ def _bfs(jdist):
     q = deque([jdist])
     while q:
         jd = q.popleft()
+        yield jd
         pk = id(jd)
         if pk not in seen:
             seen.add(pk)
-            yield jd
             q += jd.children
 
 

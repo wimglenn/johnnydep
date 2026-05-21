@@ -3,7 +3,6 @@ import os
 from textwrap import dedent
 
 import pytest
-from packaging.requirements import Requirement
 
 from johnnydep import lib
 from johnnydep.lib import flatten_deps
@@ -531,3 +530,21 @@ def test_ignore_errors_version_attrs(mocker):
     mocker.patch("unearth.finder.PackageFinder.find_all_packages", return_value=[])
     dist = JohnnyDist("notexist", ignore_errors=True)
     assert dist.version_latest is None
+
+
+def test_diamond_graph(make_dist):
+    make_dist(name="a", version="0.1", install_requires=["b1", "b2"])
+    make_dist(name="b1", version="0.2", install_requires=["c"])
+    make_dist(name="b2", version="0.2", install_requires=["c"])
+    make_dist(name="c", version="0.3")
+    a = JohnnyDist("a")
+    b1, b2 = a.children
+    assert b1.name == "b1"
+    assert b2.name == "b2"
+    [c] = b1.children
+    [c_] = b2.children
+    assert c is c_, "c should only be created once"
+    assert c.parents == [b1, b2]
+    assert c.required_by == ["b1", "b2"]
+    deps = list(flatten_deps(a))
+    assert deps == [a, b1, b2, c]
