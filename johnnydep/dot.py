@@ -1,7 +1,6 @@
 from importlib.metadata import version
 
 from .util import _bfs
-from .util import CircularMarker
 
 
 template = """\
@@ -26,11 +25,7 @@ def jd2dot(dist, comment=None):
     title = dist.project_name.replace("-", "_")
     edges = []
     for node in _bfs(dist):
-        if isinstance(node, CircularMarker):
-            # todo - render cycles differently?
-            continue
-        if node.parents:
-            [parent] = node.parents
+        for parent in node.parents:
             node_name = node._name_with_extras(attr="project_name")
             parent_node_name = parent._name_with_extras(attr="project_name")
             spec = node.req.specifier
