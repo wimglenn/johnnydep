@@ -61,12 +61,15 @@ def test_version_latest_in_spec_prerelease_not_chosen(make_dist):
     make_dist(version="0.2a0")
     jdist = JohnnyDist("jdtest")
     assert jdist.version_latest_in_spec == "0.1"
+    assert "0.1" in jdist.download_link
+    assert "0.2a0" not in jdist.download_link
 
 
 def test_version_latest_in_spec_prerelease_chosen(make_dist):
-    make_dist(name="alphaonly", version="0.2a0")
-    jdist = JohnnyDist("alphaonly")
-    assert jdist.version_latest_in_spec == "0.2a0"
+    make_dist(name="betaonly", version="0.1b0")
+    jdist = JohnnyDist("betaonly")
+    assert jdist.version_latest_in_spec == "0.1b0"
+    assert "0.1b0" in jdist.download_link
 
 
 def test_version_pinned_to_latest_in_spec(make_dist):

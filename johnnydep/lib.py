@@ -591,10 +591,11 @@ def _get_versions(req: Requirement, index_urls: tuple, env: tuple):
 
 def _get_link(req: Requirement, index_urls: tuple, env: tuple):
     packages = _get_packages(req.name, index_urls, env)
-    ok = (p for p in packages if req.specifier.contains(p.version, prereleases=True))
-    best = next(ok, None)
-    if best is not None:
-        return best.link
+    for pre in False, True:
+        ok = (p for p in packages if req.specifier.contains(p.version, prereleases=pre))
+        best = next(ok, None)
+        if best is not None:
+            return best.link
 
 
 @dataclass
