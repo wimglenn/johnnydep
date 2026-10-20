@@ -423,7 +423,6 @@ def flatten_deps(johnnydist):
         required_by_map[dep.name] += dep.required_by
     for name, dists in dist_map.items():
         spec = spec_map[name]
-        spec.prereleases = True
         extras = extra_map[name]
         required_by = list(dict.fromkeys(required_by_map[name]))  # order preserving de-dupe
         for dist in dists:
@@ -431,7 +430,7 @@ def flatten_deps(johnnydist):
             if v is None:
                 msg = f"Could not find satisfactory version for {dist.name}{dist.specifier}"
                 raise JohnnyError(msg)
-            if v in spec and set(dist.extras_requested) >= extras:
+            if spec.contains(v, prereleases=True) and set(dist.extras_requested) >= extras:
                 dist.required_by = required_by
                 johnnydist.log.info(
                     "resolved",

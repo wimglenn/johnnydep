@@ -336,6 +336,13 @@ def test_flatten_dist_with_deps(make_dist):
     assert dist1.name == "dep"
 
 
+def test_flatten_dist_with_prerelease_dependency(make_dist):
+    make_dist(name="root", install_requires=["dep>=0.1"])
+    make_dist(name="dep", version="0.2b1")
+    _, dep = flatten_deps(JohnnyDist("root"))
+    assert dep.version_latest_in_spec == "0.2b1"
+
+
 def test_diamond_dependency_resolution(make_dist):
     make_dist(name="dist1", install_requires=["dist2a", "dist2b"])
     make_dist(name="dist2a", install_requires=["dist3[y]>0.2"])
