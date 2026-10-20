@@ -339,7 +339,6 @@ def test_flatten_dist_with_deps(make_dist):
 def test_flatten_dist_with_prerelease_dependency(make_dist):
     make_dist(name="root", install_requires=["dep>=0.1"])
     make_dist(name="dep", version="0.2b1")
-
     _, dep = flatten_deps(JohnnyDist("root"))
     assert dep.version_latest_in_spec == "0.2b1"
 
