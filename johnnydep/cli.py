@@ -30,6 +30,14 @@ FIELDS = {
     "version_latest_in_spec": "Best version: latest available within requirement specifier",
     "download_link": "Source or binary distribution URL",
     "checksum": "Source or binary distribution hash",
+    "size": "Size of the distribution file in bytes (compressed)",
+    "formatted_size": "Size of the distribution file formatted (compressed)",
+    "tree_size": "Cumulative file size of package and dependencies in bytes (compressed)",
+    "formatted_tree_size": "Cumulative file size of package and dependencies formatted (compressed)",
+    "installed_size": "Installed size of the distribution in bytes (uncompressed)",
+    "formatted_installed_size": "Installed size of the distribution formatted (uncompressed)",
+    "installed_tree_size": "Cumulative installed size of package and dependencies in bytes",
+    "formatted_installed_tree_size": "Cumulative installed size of package and dependencies formatted",
 }
 
 
